@@ -1,280 +1,219 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>M4A Audio Player & Host</title>
-    <style>
-        :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --accent-color: #3b82f6;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-        }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>slovol</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eceef1; --card:#f8f9fb; --ink:#151a22; --muted:#5a6270;
+  --accent:#2438e6; --accent-ink:#fff;
+  --font:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#12151b;--card:#1b2029;--ink:#e8eaee;--muted:#98a0ad;--accent:#8a98ff;--accent-ink:#0d1020}
+}
+*{box-sizing:border-box}
+html{scroll-padding-bottom:120px}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 1.0625rem/1.5 var(--font);padding-bottom:140px}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.wrap{max-width:860px;margin:0 auto;padding:48px 20px 0}
+header h1{font-weight:800;font-size:clamp(3rem,12vw,6.5rem);line-height:.9;letter-spacing:-.04em;margin:0}
+header h1 a{text-decoration:none}
+header p{color:var(--muted);margin:14px 0 0;max-width:46ch}
+main{margin-top:48px}
+h2{font-size:1.75rem;font-weight:800;letter-spacing:-.02em;margin:0 0 4px}
+.desc{color:var(--muted);margin:0 0 20px;max-width:60ch}
+.back{display:inline-block;margin-bottom:20px;color:var(--muted);text-decoration:none;font-weight:600}
+.back:hover{color:var(--ink)}
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            margin: 0;
-            padding: 40px 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            box-sizing: border-box;
-        }
+/* folders */
+.folders{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:30px 22px;padding-top:14px}
+.folder{position:relative;display:block;padding:26px 18px 18px;background:var(--card);
+  border:1.5px solid var(--ink);border-radius:0 12px 12px 12px;text-decoration:none;color:inherit;min-height:120px}
+.folder::before{content:"";position:absolute;left:-1.5px;top:-15.5px;width:58px;height:15.5px;
+  background:var(--card);border:1.5px solid var(--ink);border-bottom:0;border-radius:8px 8px 0 0}
+.folder:hover,.folder:focus-visible{border-color:var(--accent)}
+.folder:hover::before,.folder:focus-visible::before{border-color:var(--accent)}
+.folder .name{display:block;font-weight:800;font-size:1.3rem;line-height:1.15;letter-spacing:-.01em}
+.folder .meta{display:block;margin-top:10px;color:var(--muted);font-size:.95rem}
 
-        .player-container {
-            background-color: var(--card-bg);
-            border-radius: 16px;
-            padding: 30px;
-            width: 100%;
-            max-width: 500px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
-        }
+/* tracks */
+.tracks{list-style:none;margin:0;padding:0;border-top:1.5px solid var(--ink)}
+.tracks li{border-bottom:1px solid color-mix(in srgb,var(--ink) 25%,transparent)}
+.track{display:flex;align-items:center;gap:14px;width:100%;padding:14px 4px;background:none;border:0;
+  color:inherit;font:inherit;text-align:left;cursor:pointer}
+.track:hover{color:var(--accent)}
+.track .dot{flex:none;width:10px;height:10px;border-radius:50%;border:1.5px solid var(--muted)}
+.track[aria-current="true"]{color:var(--accent);font-weight:600}
+.track[aria-current="true"] .dot{background:var(--accent);border-color:var(--accent)}
+.empty{color:var(--muted);max-width:56ch}
 
-        h1 {
-            font-size: 24px;
-            margin-top: 0;
-            margin-bottom: 20px;
-            text-align: center;
-            font-weight: 700;
-        }
-
-        /* Upload Area */
-        .upload-section {
-            border: 2px dashed #475569;
-            border-radius: 12px;
-            padding: 20px;
-            text-align: center;
-            cursor: pointer;
-            transition: border-color 0.2s ease;
-            margin-bottom: 25px;
-        }
-
-        .upload-section:hover {
-            border-color: var(--accent-color);
-        }
-
-        .upload-section p {
-            margin: 0;
-            color: var(--text-muted);
-            font-size: 14px;
-        }
-
-        #file-input {
-            display: none;
-        }
-
-        /* Audio Core Elements */
-        audio {
-            width: 100%;
-            margin-top: 15px;
-            border-radius: 8px;
-            display: none; /* Hidden unless a track is ready */
-        }
-
-        .now-playing {
-            text-align: center;
-            margin-bottom: 20px;
-            min-height: 45px;
-        }
-
-        .track-title {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--text-main);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .track-status {
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-top: 4px;
-        }
-
-        /* Custom Audio Wrapper showing native controls cleanly */
-        .audio-wrapper {
-            background: #111827;
-            padding: 10px;
-            border-radius: 12px;
-            margin-bottom: 25px;
-            display: none;
-        }
-
-        .audio-wrapper.active {
-            display: block;
-        }
-
-        .audio-wrapper audio {
-            display: block;
-        }
-
-        /* Playlist Styles */
-        .playlist-header {
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-muted);
-            margin-bottom: 10px;
-            font-weight: 600;
-        }
-
-        .playlist {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-
-        .playlist-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 16px;
-            background-color: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 8px;
-            margin-bottom: 8px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .playlist-item:hover {
-            background-color: #334155;
-        }
-
-        .playlist-item.playing {
-            border-color: var(--accent-color);
-            background-color: rgba(59, 130, 246, 0.1);
-        }
-
-        .playlist-item-name {
-            font-size: 14px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 85%;
-        }
-
-        .play-icon {
-            color: var(--accent-color);
-            font-size: 12px;
-            font-weight: bold;
-        }
-    </style>
+/* player */
+#player{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1.5px solid var(--ink);
+  padding:12px 20px calc(12px + env(safe-area-inset-bottom,0px))}
+#player[hidden]{display:none}
+.pin{max-width:860px;margin:0 auto;display:grid;grid-template-columns:1fr auto;gap:8px 16px;align-items:center}
+.now{min-width:0}
+.now strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.now span{display:block;color:var(--muted);font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctrl{display:flex;gap:6px;align-items:center}
+.ctrl button{width:44px;height:44px;display:grid;place-items:center;border:0;border-radius:50%;
+  background:none;color:var(--ink);cursor:pointer}
+.ctrl button:hover{background:color-mix(in srgb,var(--ink) 10%,transparent)}
+.ctrl button:disabled{opacity:.35;cursor:default}
+.ctrl #play{background:var(--accent);color:var(--accent-ink);width:50px;height:50px}
+.ctrl #play:hover{background:var(--accent);filter:brightness(1.1)}
+svg{width:22px;height:22px;fill:currentColor}
+.seek{grid-column:1/-1;display:flex;align-items:center;gap:12px;font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.seek input{flex:1;accent-color:var(--accent);height:24px;min-width:0}
+</style>
 </head>
 <body>
+<div class="wrap">
+  <header>
+    <h1><a href="#/" id="site-title">slovol</a></h1>
+    <p id="site-sub"></p>
+  </header>
+  <main id="view" aria-live="polite"></main>
+</div>
 
-    <div class="player-container">
-        <h1>M4A Web Player</h1>
-        
-        <!-- Local File Loader -->
-        <div class="upload-section" onclick="document.getElementById('file-input').click()">
-            <p>🎵 Click to select or drop <b>.m4a</b> files</p>
-            <input type="file" id="file-input" accept=".m4a" multiple>
-        </div>
-
-        <!-- Metadata & Status Area -->
-        <div class="now-playing">
-            <div class="track-title" id="current-title">No track selected</div>
-            <div class="track-status" id="current-status">Upload a file to start listening</div>
-        </div>
-
-        <!-- Native browser audio player component wrapper -->
-        <div class="audio-wrapper" id="player-wrapper">
-            <audio id="audio-player" controls></audio>
-        </div>
-
-        <!-- Tracks List -->
-        <div class="playlist-header">Your Tracks</div>
-        <ul class="playlist" id="playlist-container">
-            <!-- Dynamic list objects append here -->
-        </ul>
+<section id="player" aria-label="Audio player" hidden>
+  <div class="pin">
+    <div class="now"><strong id="np-title"></strong><span id="np-folder"></span></div>
+    <div class="ctrl">
+      <button id="prev" aria-label="Previous track"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+      <button id="play" aria-label="Play"><svg id="icon-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><svg id="icon-pause" viewBox="0 0 24 24" hidden><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg></button>
+      <button id="next" aria-label="Next track"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
     </div>
+    <div class="seek">
+      <span id="t-cur">0:00</span>
+      <input id="seek" type="range" min="0" max="1000" value="0" aria-label="Seek">
+      <span id="t-dur">0:00</span>
+    </div>
+  </div>
+  <audio id="audio" preload="none"></audio>
+</section>
 
-    <script>
-        const fileInput = document.getElementById('file-input');
-        const audioPlayer = document.getElementById('audio-player');
-        const playerWrapper = document.getElementById('player-wrapper');
-        const playlistContainer = document.getElementById('playlist-container');
-        const currentTitle = document.getElementById('current-title');
-        const currentStatus = document.getElementById('current-status');
+<script>
+const $ = s => document.querySelector(s);
+const audio = $('#audio'), view = $('#view');
+const state = { lib: null, folderId: null, index: -1 };
 
-        let tracks = [];
-        let currentTrackIndex = null;
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = t => { if (!isFinite(t)) return '0:00'; const m = Math.floor(t/60), s = Math.floor(t%60); return m + ':' + String(s).padStart(2,'0'); };
+const plural = n => n + (n === 1 ? ' track' : ' tracks');
+const folderById = id => state.lib.folders.find(f => f.id === id);
 
-        // Handle file selection
-        fileInput.addEventListener('change', (e) => {
-            const files = Array.from(e.target.files);
-            
-            files.forEach(file => {
-                // Generate a temporary local URL for the object block memory
-                const trackUrl = URL.createObjectURL(file);
-                
-                tracks.push({
-                    name: file.name,
-                    url: trackUrl
-                });
-            });
+async function init() {
+  try {
+    const r = await fetch('library.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error(r.status);
+    state.lib = await r.json();
+  } catch (e) {
+    view.innerHTML = '<p class="empty">Could not load library.json. Check that the file is in the same folder as index.html. If you opened this page straight from your computer, run a local server instead (python3 -m http.server).</p>';
+    return;
+  }
+  const l = state.lib;
+  if (l.title) { $('#site-title').textContent = l.title; document.title = l.title; }
+  $('#site-sub').textContent = l.subtitle || '';
+  addEventListener('hashchange', route);
+  route();
+}
 
-            renderPlaylist();
+function route() {
+  const id = decodeURIComponent(location.hash.replace(/^#\/?/, ''));
+  const f = id && folderById(id);
+  f ? showFolder(f) : showHome();
+  scrollTo(0, 0);
+}
 
-            if (currentTrackIndex === null && tracks.length > 0) {
-                playTrack(0);
-            }
-        });
+function showHome() {
+  const fs = state.lib.folders || [];
+  if (!fs.length) {
+    view.innerHTML = '<p class="empty">No folders yet. Add .m4a files under audio/ and run build_library.py to list them here.</p>';
+    return;
+  }
+  view.innerHTML = '<div class="folders">' + fs.map(f =>
+    `<a class="folder" href="#/${encodeURIComponent(f.id)}"><span class="name">${esc(f.name)}</span><span class="meta">${plural(f.tracks.length)}</span></a>`
+  ).join('') + '</div>';
+}
 
-        // Generate clean template markup for items
-        function renderPlaylist() {
-            playlistContainer.innerHTML = '';
-            tracks.forEach((track, index) => {
-                const li = document.createElement('li');
-                li.className = `playlist-item ${index === currentTrackIndex ? 'playing' : ''}`;
-                li.onclick = () => playTrack(index);
+function showFolder(f) {
+  const playingHere = state.folderId === f.id;
+  view.innerHTML = `<a class="back" href="#/">Back to all folders</a>
+    <h2>${esc(f.name)}</h2>
+    ${f.description ? `<p class="desc">${esc(f.description)}</p>` : '<p class="desc"></p>'}
+    ${f.tracks.length ? `<ul class="tracks">${f.tracks.map((t, i) =>
+      `<li><button class="track" data-i="${i}"${playingHere && state.index === i ? ' aria-current="true"' : ''}><span class="dot"></span><span>${esc(t.title)}</span></button></li>`
+    ).join('')}</ul>` : '<p class="empty">This folder has no tracks yet.</p>'}`;
+  view.querySelectorAll('.track').forEach(b => b.addEventListener('click', () => play(f.id, +b.dataset.i)));
+}
 
-                li.innerHTML = `
-                    <span class="playlist-item-name">${track.name}</span>
-                    ${index === currentTrackIndex ? '<span class="play-icon">▶ NOW PLAYING</span>' : ''}
-                `;
-                playlistContainer.appendChild(li);
-            });
-        }
+function play(folderId, i) {
+  const f = folderById(folderId), t = f && f.tracks[i];
+  if (!t) return;
+  state.folderId = folderId; state.index = i;
+  audio.src = encodeURI(t.file);
+  audio.play().catch(() => {});
+  $('#player').hidden = false;
+  $('#np-title').textContent = t.title;
+  $('#np-folder').textContent = f.name;
+  $('#prev').disabled = i === 0;
+  $('#next').disabled = i === f.tracks.length - 1;
+  markCurrent();
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: f.name });
+  }
+}
 
-        // Handle Audio Playback Initialization
-        function playTrack(index) {
-            if (index < 0 || index >= tracks.length) return;
+function markCurrent() {
+  view.querySelectorAll('.track').forEach(b => {
+    const on = state.folderId === (location.hash.replace(/^#\/?/, '') && decodeURIComponent(location.hash.replace(/^#\/?/, ''))) && +b.dataset.i === state.index;
+    on ? b.setAttribute('aria-current', 'true') : b.removeAttribute('aria-current');
+  });
+}
 
-            currentTrackIndex = index;
-            const track = tracks[index];
+const step = d => { const f = folderById(state.folderId); if (f) play(state.folderId, state.index + d); };
 
-            // Assign URL to audio pipeline
-            audioPlayer.src = track.url;
-            currentTitle.textContent = track.name;
-            currentStatus.textContent = "Playing...";
-            
-            playerWrapper.classList.add('active');
-            renderPlaylist();
+$('#play').addEventListener('click', () => audio.paused ? audio.play() : audio.pause());
+$('#prev').addEventListener('click', () => step(-1));
+$('#next').addEventListener('click', () => step(1));
 
-            audioPlayer.play().catch(error => {
-                console.log("Playback interaction required:", error);
-                currentStatus.textContent = "Paused (Click play below)";
-            });
-        }
+audio.addEventListener('play', () => syncPlay(true));
+audio.addEventListener('pause', () => syncPlay(false));
+audio.addEventListener('ended', () => {
+  const f = folderById(state.folderId);
+  if (f && state.index < f.tracks.length - 1) step(1);
+});
+function syncPlay(playing) {
+  $('#icon-play').hidden = playing;
+  $('#icon-pause').hidden = !playing;
+  $('#play').setAttribute('aria-label', playing ? 'Pause' : 'Play');
+}
 
-        // Listen for track ending to skip to the next track automatically
-        audioPlayer.addEventListener('ended', () => {
-            if (currentTrackIndex + 1 < tracks.length) {
-                playTrack(currentTrackIndex + 1);
-            } else {
-                currentStatus.textContent = "Finished playing playlist";
-            }
-        });
-    </script>
+let dragging = false;
+const seek = $('#seek');
+audio.addEventListener('loadedmetadata', () => { $('#t-dur').textContent = fmt(audio.duration); });
+audio.addEventListener('timeupdate', () => {
+  $('#t-cur').textContent = fmt(audio.currentTime);
+  if (!dragging && audio.duration) seek.value = (audio.currentTime / audio.duration) * 1000;
+});
+seek.addEventListener('input', () => { dragging = true; $('#t-cur').textContent = fmt(seek.value / 1000 * audio.duration); });
+seek.addEventListener('change', () => { if (audio.duration) audio.currentTime = seek.value / 1000 * audio.duration; dragging = false; });
+
+if ('mediaSession' in navigator) {
+  navigator.mediaSession.setActionHandler('play', () => audio.play());
+  navigator.mediaSession.setActionHandler('pause', () => audio.pause());
+  navigator.mediaSession.setActionHandler('previoustrack', () => step(-1));
+  navigator.mediaSession.setActionHandler('nexttrack', () => step(1));
+}
+
+init();
+</script>
 </body>
 </html>
