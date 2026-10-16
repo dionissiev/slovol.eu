@@ -1,9 +1,8 @@
 {
-  "title": "My Audiobook",
-  "author": "",
+  "title": "Малкият принц",
+  "author": "Антоан дьо Сент Екзюпери",
   "chapters": [
-    { "title": "Chapter 1", "file": "Chapter 1.m4a" },
-    { "title": "Chapter 2", "file": "Chapter 2.m4a" },
-    { "title": "Chapter 3", "file": "Chapter 3.m4a" }
-  ]
+    { "title": "Предговор", "file": "Little_Prince_0.m4a" },
+    { "title": "I", "file": "Little_Prince_0.m4a.m4a" },
+    ]
 }
