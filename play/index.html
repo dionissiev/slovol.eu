@@ -35,6 +35,7 @@
 <h1 id="bookTitle">Audiobook</h1>
 <p class="book" id="bookAuthor"></p>
 <div id="list"></div>
+<div id="error" style="display:none;background:#3a1c20;border:1px solid #c06070;color:#ffb0b8;padding:.8rem 1rem;border-radius:10px;margin-bottom:1rem;white-space:pre-wrap;font-size:.9rem"></div>
 
 <div id="controls">
   <input type="range" id="progress" value="0" min="0" max="1000" step="1">
@@ -54,8 +55,33 @@
 <script>
 const SPEEDS = [1, 1.25, 1.5, 1.75, 2, 0.75, 0.5];
 
+function showError(msg) {
+  const el = document.getElementById('error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
 async function load() {
-  const meta = await fetch('playlist.json').then(r => r.json());
+  let text;
+  try {
+    const resp = await fetch('playlist.json');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status + ' — check that playlist.json is deployed and the URL is correct.');
+    text = await resp.text();
+  } catch (e) {
+    showError('Could not load playlist.json: ' + e.message);
+    return [];
+  }
+  let meta;
+  try {
+    meta = JSON.parse(text);
+  } catch (e) {
+    showError('playlist.json is not valid JSON: ' + e.message + '\n\nCommon cause: a trailing comma before the closing bracket, like:\n  { "title": "I", "file": "x.m4a" },\n]');
+    return [];
+  }
+  if (!Array.isArray(meta.chapters) || meta.chapters.length === 0) {
+    showError('playlist.json has no chapters. Make sure it has a "chapters" array with at least one { "title", "file" } entry.');
+    return [];
+  }
   document.getElementById('bookTitle').textContent = meta.title || 'Audiobook';
   document.getElementById('bookAuthor').textContent = meta.author || '';
   const list = document.getElementById('list');
@@ -70,6 +96,15 @@ async function load() {
     div.onclick = () => playChapter(i);
     list.appendChild(div);
   });
+  // Pre-check that every audio file actually exists at the URL
+  for (const ch of meta.chapters) {
+    try {
+      const r = await fetch(ch.file, { method: 'HEAD' });
+      if (!r.ok) showError('Missing audio file for chapter "' + ch.title + '": ' + ch.file + ' (HTTP ' + r.status + '). Check the filename and that it was uploaded.');
+    } catch (e) {
+      showError('Could not reach audio file for chapter "' + ch.title + '": ' + ch.file);
+    }
+  }
   return meta.chapters;
 }
 
@@ -100,6 +135,7 @@ function updateActive() {
 
 load().then(chs => {
   chapters = chs;
+  if (!chapters.length) { playBtn.style.visibility = 'hidden'; return; }
   chapters.forEach((ch, i) => {
     const t = new Audio(ch.file);
     t.addEventListener('loadedmetadata', () => {
