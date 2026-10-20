@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dice Fight</title>
+<style>
+  :root { --p1:#3b82f6; --p2:#ef4444; --bg:#111827; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:system-ui,sans-serif; background:var(--bg); color:#f3f4f6; min-height:100vh; padding:16px; }
+  h1 { text-align:center; margin-bottom:4px; }
+  .sub { text-align:center; color:#9ca3af; margin-bottom:16px; font-size:.9rem; }
+  .panel { max-width:900px; margin:0 auto; }
+  .board { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:12px; }
+  .player { background:#1f2937; border-radius:12px; padding:12px; border:2px solid transparent; }
+  .player.active { border-color:#fbbf24; }
+  .player h2 { font-size:1rem; margin-bottom:8px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px;}
+  .player h2 .score { color:#9ca3af; font-weight:400; font-size:.8rem; }
+  .dice { display:flex; flex-wrap:wrap; gap:8px; }
+  .die { width:56px; height:56px; border-radius:8px; display:flex; align-items:center; justify-content:center;
+         font-weight:700; font-size:1.3rem; color:#fff; position:relative; cursor:pointer; user-select:none;
+         box-shadow:0 2px 6px rgba(0,0,0,.4); }
+  .die .size { position:absolute; bottom:2px; right:4px; font-size:.6rem; opacity:.8; }
+  .die.sel { outline:3px solid #fbbf24; outline-offset:2px; }
+  .die.target { outline:3px solid #ef4444; outline-offset:2px; animation:pulse 0.7s ease-in-out 2; }
+  .die.rerolled { animation:flashNew 1s ease-out 1; }
+.die.rerolled.once-done { animation:none; }
+  @keyframes flashNew { 0% { box-shadow:0 0 0 4px #22d3ee; filter:brightness(1.6); } 100% { box-shadow:0 2px 6px rgba(0,0,0,.4); filter:none; } }
+  @keyframes pulse { 50% { transform:scale(1.12); } }
+  .die.dead { opacity:.3; cursor:default; background:#374151 !important; }
+  .p1 .die:not(.dead) { background:var(--p1); } .p2 .die:not(.dead) { background:var(--p2); }
+  /* Special die faces override the player colour so the type reads at a glance. */
+  .die.shadow:not(.dead) { background:#7c3aed !important; }
+  .die.trip:not(.dead)   { background:#d97706 !important; }
+  .die.poison:not(.dead) { background:#65a30d !important; }
+  .status { text-align:center; background:#1f2937; border-radius:12px; padding:12px; margin-bottom:12px; min-height:56px; font-size:1rem; }
+  .status .big { font-size:1.1rem; font-weight:700; display:block; margin-bottom:6px; }
+  .controls { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:12px; }
+  button { background:#374151; color:#f3f4f6; border:none; border-radius:8px; padding:10px 18px; font-size:.95rem; cursor:pointer; }
+  button:hover { background:#4b5563; }
+  button.primary { background:#fbbf24; color:#111827; font-weight:700; }
+  #passBtn.alert { background:#ef4444; color:#fff; font-weight:700; animation:passPulse 1s ease-in-out infinite; }
+  @keyframes passPulse { 50% { transform:scale(1.08); } }
+  .log { background:#1f2937; border-radius:12px; padding:10px; max-height:180px; overflow-y:auto; font-size:.85rem; color:#d1d5db; }
+  .log div { padding:2px 0; border-bottom:1px solid #374151; }
+  .setup { max-width:500px; margin:40px auto; background:#1f2937; padding:24px; border-radius:12px; }
+  .setup label { display:block; margin:10px 0 4px; font-size:.9rem; }
+  .setup select, .setup input[type=select] { width:100%; padding:8px; border-radius:6px; border:1px solid #4b5563; background:#111827; color:#f3f4f6; }
+  .recipe { color:#9ca3af; font-size:.8rem; margin-top:2px; }
+  .swingRow { display:block; margin-top:8px; font-size:.85rem; color:#d1d5db; }
+  .swingRow select { width:110px; padding:6px; border-radius:6px; border:1px solid #4b5563; background:#111827; color:#f3f4f6; margin-left:6px; }
+  #auth, #profile { max-width:500px; margin:40px auto; }
+  #auth input[type=text], #auth input[type=password] { width:100%; padding:8px; border-radius:6px; border:1px solid #4b5563; background:#111827; color:#f3f4f6; box-sizing:border-box; }
+  #auth .row { display:flex; gap:8px; margin-top:12px; }
+  #auth .err { color:#f87171; font-size:.85rem; min-height:1.2em; margin-top:8px; }
+  #auth h1 { margin-bottom:4px; }
+  table.hist { width:100%; border-collapse:collapse; font-size:.85rem; margin-top:10px; }
+  table.hist th, table.hist td { padding:6px 8px; border-bottom:1px solid #374151; text-align:left; }
+  table.hist th { color:#9ca3af; font-weight:600; }
+  .stats { display:flex; gap:16px; margin-top:10px; font-size:.9rem; }
+  .stats b { display:block; font-size:1.3rem; color:#a3e635; }
+  .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:.85rem; color:#9ca3af; }
+  .topbar button { padding:4px 10px; font-size:.8rem; }
+</style>
+</head>
+<body>
+<div class="panel" id="auth">
+  <h1>⚔️ Dice Fight</h1>
+  <div class="sub">Sign in to keep your match history — or play as a guest.</div>
+  <div class="setup">
+    <label>Username</label>
+    <input type="text" id="authUser" maxlength="24" autocomplete="username">
+    <label>Password</label>
+    <input type="password" id="authPass" autocomplete="current-password">
+    <div class="row">
+      <button class="primary" style="flex:1" onclick="doLogin()">Sign in</button>
+      <button class="primary" style="flex:1" onclick="doRegister()">Register</button>
+      <button style="flex:1" onclick="doGuest()">Play as guest</button>
+    </div>
+    <div class="err" id="authErr"></div>
+  </div>
+</div>
+
+<div class="panel" id="profile" style="display:none">
+  <h1 id="profTitle"></h1>
+  <div class="stats" id="profStats"></div>
+  <table class="hist" id="profTable"></table>
+  <div class="controls"><button onclick="closeProfile()">Back</button><button onclick="doLogout()">Log out</button></div>
+</div>
+
+<div class="panel" id="setup" style="display:none">
+  <h1>⚔️ Dice Fight</h1>
+  <div class="sub">Captured dice score full size; kept dice score half (rounded up). First to 3 rounds wins.</div>
+  <div class="err" id="guestNote" style="display:none;color:#a3e635">Playing as guest — your match history won't be saved.</div>
+  <div class="setup">
+    <label style="margin-top:12px">Player 1 character</label>
+    <select id="btn1"></select><div class="recipe" id="rec1"></div>
+    <div id="sw1"></div>
+    <label style="margin-top:12px">Player 2 character</label>
+    <select id="btn2"></select><div class="recipe" id="rec2"></div>
+    <div id="sw2"></div>
+    <div class="recipe" style="margin-top:10px;line-height:1.5">
+      <b style="color:#f3f4f6">Shadow die (s):</b> can't Power attack. Instead it captures any enemy die showing a value <b>≥ its own</b> (within the target's range). Skill attacks as normal.<br>
+      <b style="color:#f3f4f6">Trip die (t):</b> can make a Trip attack: <b>both dice reroll</b> — you capture if your new roll ≥ theirs. On a miss, both keep their new values. Trip dice don't count for going first.<br>
+      <b style="color:#a3e635">Poison die (p):</b> attacks normally (Power, Trip-style rerolls — never as a Skill helper), but scores <b>negative</b>: whoever captures it scores −its size, and a kept poison die subtracts half its size at round end.
+    </div>
+    <label style="margin-top:12px"><input type="checkbox" id="ai" checked> Player 2 played by the computer</label>
+    <label style="margin-top:12px">Computer difficulty</label>
+    <select id="diff">
+      <option value="easy">Easy — random attacks</option>
+      <option value="normal" selected>Normal — greedy: grabs the biggest die</option>
+      <option value="hard">Hard — looks ahead one move</option>
+    </select>
+    <div style="margin-top:16px;display:flex;gap:8px">
+      <button class="primary" style="flex:1" onclick="startGame()">Fight!</button>
+      <button class="primary" style="flex:1;display:none" id="beginBtn" onclick="beginFight(resolved1, resolved2)">Begin fight</button>
+    </div>
+    <div id="beginRow" style="display:none;margin-top:10px;color:#a3e635;font-size:.85rem">
+      Set your swing / custom dice above, then press “Begin fight”.
+    </div>
+  </div>
+</div>
+
+<div class="panel" id="game" style="display:none">
+  <div class="board">
+    <div class="player p1" id="p1box">
+      <h2><span id="p1name"></span><span class="score" id="p1score"></span></h2>
+      <div class="dice" id="p1dice"></div>
+    </div>
+    <div class="player p2" id="p2box">
+      <h2><span id="p2name"></span><span class="score" id="p2score"></span></h2>
+      <div class="dice" id="p2dice"></div>
+    </div>
+  </div>
+  <div class="status" id="status"></div>
+  <div class="controls">
+    <button id="passBtn" onclick="doPass()">Pass</button>
+    <button onclick="newGame()">New game</button>
+    <button onclick="showProfile()" id="profBtn" style="display:none">My stats</button>
+  </div>
+  <div class="log" id="log"></div>
+</div>
+
+<script>
+// Buttons use only d4, d6, d8, d12, d20 as requested.
+const BUTTON_LIST = {
+  "Socrates": { dice:[4,6,8,12,20], desc:"Balanced starter recipe.", quotes:["I know that I know nothing.", "The unexamined life is not worth living.", "To know thyself is the beginning of wisdom."] },
+  "Diogenes": { dice:[4,4,6,12,20], desc:"Two d4s — great for skill attacks.", quotes:["It is not that I am mad; my head is just different from yours.", "I am a citizen of the world.", "Stand out of my sunlight."] },
+  "Plato":    { dice:[4,6,6,12,20], desc:"Twin d6s for clever sums.", quotes:["Courage is knowing what not to fear.", "The beginning is the most important part of the work.", "Wise men speak because they have something to say; fools because they have to say something."] },
+  "Aristotle":{ dice:[6,8,8,12,20], desc:"Midweight bruiser.", quotes:["Knowing yourself is the beginning of all wisdom.", "It is the mark of an educated mind to entertain a thought without accepting it.", "We are what we repeatedly do."] },
+  "Epicurus": { dice:[4,8,8,20,20], desc:"Huge dice, few tricks.", quotes:["Death is nothing to us.", "Not what we have, but what we enjoy, constitutes our abundance.", "Do not spoil what you have by desiring what you have not."] },
+  "Heraclitus": { dice:[4,4,4,12,20], desc:"The d4 swarm — maximum flexibility.", quotes:["No man ever steps in the same river twice.", "Big results require big ambitions.", "Character is destiny."] },
+  "Zhuangzi": { dice:[6,8,12,12,20], desc:"Steady heavyweight.", quotes:["Flow with whatever may happen, and let your mind be free.", "Happiness is the absence of the striving for happiness.", "When the shoe fits, the foot is forgotten."] },
+  "Descartes": { dice:[4,4,8,8,20], desc:"Pairs of dice, tricky sums.", quotes:["I think, therefore I am.", "It is not enough to have a good mind; the main thing is to use it well.", "Doubt is the origin of wisdom."] },
+  // Special dice: "s6" = Shadow d6 (attacks upward), "t4" = Trip d4 (rerolls both dice).
+  // Swing characters: X=4–20, V=2–12, W=2–16. You pick the size at setup.
+  "Schopenhauer": { dice:[2,12,12,20,"X"], desc:"One X swing die — you choose its size (4–20).", quotes:["Talent hits a target no one else can hit; genius hits a target no one else can see.", "We forfeit three-fourths of ourselves to be like other people.", "A man can be himself only so long as he is alone."] },
+  "Camus":    { dice:[6,"X",8,12,"V"], desc:"X (4–20) and V (2–12) swings.", quotes:["In the midst of winter, I found there was, within me, an invincible summer.", "Man is the only creature who refuses to be what he is.", "In order to understand the world, one has to turn away from it on occasion."] },
+  "Nietzsche": { dice:["W","W",12,12,20], desc:"Two W swings (2–16) — tiny or huge.", quotes:["That which does not kill us makes us stronger.", "There are no facts, only interpretations.", "He who has a why to live can bear almost any how."] },
+  "Zhuangzi2": null, // placeholder removed below
+};
+delete BUTTON_LIST["Zhuangzi2"];
+BUTTON_LIST["Laozi"]    = { dice:["X","X","X","X","X"], desc:"Five X swings — total freedom.", quotes:["A journey of a thousand miles begins with a single step.", "Knowing others is intelligence; knowing yourself is true wisdom.", "When I let go of what I am, I become what I might be."] };
+BUTTON_LIST["Wittgenstein"] = { dice:[4,6,8,"X","W"], desc:"Balanced core with X and W swings.", quotes:["Whereof one cannot speak, thereof one must be silent.", "The limits of my language mean the limits of my world.", "If people do not believe that mathematics is simple, it is only because they do not realize how complicated life is."] };
+BUTTON_LIST["Marcus Aurelius"] = { dice:["V","V",10,12,20], desc:"Twin V swings plus heavy hitters.", quotes:["You have power over your mind — not outside events. Realize this, and you will find strength.", "The impediment to action advances action. What stands in the way becomes the way.", "Very little is needed to make a happy life; it is all within yourself."] };
+// Shadow dice (s): cannot Power attack; instead capture any die showing >= their value (up to the target's max). Skill attacks as normal.
+// Trip dice (t): can also Trip attack — both dice reroll; capture if your new roll >= theirs. Trip dice don't count for going first.
+BUTTON_LIST["Pythagoras"]  = { dice:[4,"s6",8,12,20],        desc:"One Shadow d6 in a balanced lineup.", quotes:["Number is the ruler of forms and ideas.", "There is geometry in the humming of the strings.", "Above all things, reverence yourself."] };
+BUTTON_LIST["Orpheus"]     = { dice:["s4","s6","s8","s12","s20"], desc:"All-Shadow — hunts dice showing big numbers.", quotes:["The song outlives the singer.", "Music can name the unnameable.", "Even stones sing when the lyre is right."] };
+BUTTON_LIST["Thales"]      = { dice:["t4","t4",8,12,20],      desc:"Twin Trip d4s — chaos on demand.", quotes:["The most difficult thing is to know yourself.", "Water is the first principle of all things.", "A small spark can start a great fire."] };
+BUTTON_LIST["Zeno"]        = { dice:["t6","t6","t6","t6","t6"], desc:"Five Trip d6s — every die is a gamble.", quotes:["What is in motion is never at rest.", "You can never step into the same river twice — not even once, really.", "The goal of life is living in agreement with nature."] };
+BUTTON_LIST["Hypatia"]     = { dice:[4,"s8",12,"t6",20],     desc:"Shadow d8, Trip d6 and heavy hitters.", quotes:["Reserve your right to think, for even to think wrongly is better than not to think at all.", "As vector and magnitude have their sign, so thought has its direction.", "Life is an unfoldment, and the further we travel the more truth we can comprehend."] };
+// Poison dice (p): attack with Power (never as Skill helpers) but score NEGATIVE.
+BUTTON_LIST["Machiavelli"] = { dice:["p6","p6","p6",12,20],   desc:"Three poison d6s — an army of regrets.", quotes:["Everyone sees what you appear to be; few experience what you really are.", "It is better to act and repent than not to act and regret.", "Never attempt to win by force what can be won by deception."] };
+BUTTON_LIST["Hobbes"]      = { dice:[4,"p6",8,12,20],        desc:"One poison d6 — powerful, but it will cost someone.", quotes:["Life is nasty, brutish and short.", "The condition of man is a condition of war of everyone against everyone.", "Fear and I were born twins."] };
+BUTTON_LIST["Beauvoir"]    = { dice:["p4","p4",10,12,"X"],   desc:"Twin poison d4s plus an X swing.", quotes:["One is not born, but rather becomes, a woman.", "Change your life today. Don't gamble on the future.", "I am incapable of conceiving infinity, and yet I do not accept finity."] };
+BUTTON_LIST["Custom"]       = { dice:["C","C","C","C","C"],    desc:"Pick type (regular, shadow, trip, poison) and size for each of five dice.", quotes:["Nothing is true; everything is permitted — on the dice table.", "A hero is no braver than an ordinary man, but he is brave five minutes longer.", "Do not go where the path may lead; go instead where there is no path."] };
+
+// Swing ranges (min–max sides the player may choose).
+const SWING_RANGES = { X:[4,20], V:[2,12], W:[2,16], S:[6,20], U:[1,30], Z:[6,30], Y:[1,20], C:[1,30] };
+
+let G = null;
+let resolved1 = null, resolved2 = null; // characters as resolved after Random rolls
+const pickerVals = {}; // last chosen value per picker id (survives rebuilds)
+
+// ---------- Accounts, sessions and match history ----------
+// All data lives in localStorage under these keys. If the game later gets a
+// real backend (for multiplayer), only these two functions need to change.
+const DF_USERS = "df_users";      // { username: { salt, hash, stats, history } }
+const DF_SESSION = "df_session";  // username of the logged-in user
+
+// Safe storage: falls back to in-memory (guest-like) if localStorage is blocked.
+const MEM = {};
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return MEM[k] ?? null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { MEM[k] = v; } },
+  del(k) { try { localStorage.removeItem(k); } catch { delete MEM[k]; } }
+};
+
+function loadUsers() { try { return JSON.parse(store.get(DF_USERS)) || {}; } catch { return {}; } }
+function saveUsers(u) { store.set(DF_USERS, JSON.stringify(u)); }
+
+async function hashPw(pw, salt) {
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(salt + ":" + pw));
+  return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+let CUR = null; // current user object (or null for guest)
+
+function setAuthErr(m) { document.getElementById("authErr").textContent = m || ""; }
+
+function showPanel(id) {
+  for (const p of ["auth", "setup", "game", "profile"])
+    document.getElementById(p).style.display = p === id ? "block" : "none";
+}
+
+async function doRegister() {
+  const u = document.getElementById("authUser").value.trim();
+  const p = document.getElementById("authPass").value;
+  if (!u || u.length < 2) return setAuthErr("Username must be at least 2 characters.");
+  if (!p || p.length < 4) return setAuthErr("Password must be at least 4 characters.");
+  const users = loadUsers();
+  if (users[u.toLowerCase()]) return setAuthErr("That username is already taken.");
+  const salt = crypto.getRandomValues(new Uint8Array(8)).join("");
+  users[u.toLowerCase()] = {
+    name: u, salt, hash: await hashPw(p, salt),
+    stats: { games: 0, wins: 0, roundsWon: 0, roundsLost: 0 },
+    history: []
+  };
+  saveUsers(users);
+  signIn(users[u.toLowerCase()]);
+}
+
+async function doLogin() {
+  const u = document.getElementById("authUser").value.trim().toLowerCase();
+  const p = document.getElementById("authPass").value;
+  const users = loadUsers();
+  const acc = users[u];
+  if (!acc) return setAuthErr("No such user. Register first.");
+  if (await hashPw(p, acc.salt) !== acc.hash) return setAuthErr("Wrong password.");
+  signIn(acc);
+}
+
+function doGuest() {
+  CUR = null;
+  store.del(DF_SESSION);
+  document.getElementById("profBtn").style.display = "none";
+  document.getElementById("guestNote").style.display = "block";
+  showPanel("setup");
+}
+
+function signIn(acc) {
+  CUR = acc;
+  store.set(DF_SESSION, acc.name.toLowerCase());
+  document.getElementById("profBtn").textContent = `My stats (${acc.name})`;
+  document.getElementById("profBtn").style.display = "inline-block";
+  document.getElementById("guestNote").style.display = "none";
+  showPanel("setup");
+}
+
+function doLogout() {
+  CUR = null;
+  store.del(DF_SESSION);
+  document.getElementById("profBtn").style.display = "none";
+  showPanel("auth");
+}
+
+// Try to restore the last session on page load.
+function restoreSession() {
+  const id = store.get(DF_SESSION);
+  const acc = id && loadUsers()[id];
+  if (acc) { signIn(acc); return; }
+  showPanel("auth");
+}
+
+// Called once when a match ends: append to the signed-in user's history.
+function recordGame() {
+  if (!CUR) return;
+  const users = loadUsers();
+  const me = CUR.name.toLowerCase();
+  const acc = users[me];
+  if (!acc) return; // account was deleted elsewhere
+  // The signed-in player is always Player 1 in the current build.
+  const opp = G.p2.name === "Computer" ? "Computer (" + G.p2.btnName + ")" : G.p2.btnName;
+  const iWon = G.p1.rounds > G.p2.rounds;
+  acc.stats.games++;
+  acc.stats.wins += iWon ? 1 : 0;
+  acc.stats.roundsWon += G.p1.rounds;
+  acc.stats.roundsLost += G.p2.rounds;
+  acc.history.unshift({
+    date: new Date().toISOString().slice(0, 16).replace("T", " "),
+    me: G.p1.btnName, opp,
+    result: iWon ? "win" : "loss",
+    score: `${G.p1.rounds}–${G.p2.rounds}`
+  });
+  acc.history = acc.history.slice(0, 50);
+  saveUsers(users);
+  CUR = acc; // refresh the in-memory copy with the new stats
+}
+
+function showProfile() {
+  if (!CUR) return;
+  const acc = loadUsers()[CUR.name.toLowerCase()] || CUR;
+  const s = acc.stats;
+  document.getElementById("profTitle").textContent = `📊 ${acc.name}`;
+  document.getElementById("profStats").innerHTML =
+    `<div><b>${s.games}</b>games</div><div><b>${s.wins}</b>wins</div>` +
+    `<div><b>${s.games ? Math.round(100 * s.wins / s.games) : 0}%</b>win rate</div>` +
+    `<div><b>${s.roundsWon}–${s.roundsLost}</b>rounds</div>`;
+  const rows = acc.history.map(h =>
+    `<tr><td>${h.date}</td><td>${h.me}</td><td>${h.opp}</td>` +
+    `<td style="color:${h.result === "win" ? "#a3e635" : "#f87171"}">${h.result}</td><td>${h.score}</td></tr>`);
+  document.getElementById("profTable").innerHTML =
+    `<tr><th>When</th><th>You</th><th>Opponent</th><th>Result</th><th>Rounds</th></tr>` +
+    (rows.length ? rows.join("") : `<tr><td colspan="5" style="color:#9ca3af">No games yet — go fight someone!</td></tr>`);
+  showPanel("profile");
+}
+
+function closeProfile() { showPanel(G && G.over ? "game" : "setup"); }
+
+function roll(sides) { return 1 + Math.floor(Math.random() * sides); }
+
+function buildSelect(id) {
+  const s = document.getElementById(id);
+  const r = document.createElement("option");
+  r.value = "random"; r.textContent = "🎲 Random character";
+  s.appendChild(r);
+  // Custom sits at the top, right below Random.
+  const names = Object.keys(BUTTON_LIST).filter(n => n !== "Custom");
+  const ordered = ["Custom", ...names];
+  for (const name of ordered) {
+    const o = document.createElement("option");
+    o.value = name; o.textContent = name + " — " + BUTTON_LIST[name].dice.join(",");
+    s.appendChild(o);
+  }
+}
+
+function makePlayer(name, btnName, swingSizes, customTypes) {
+  let sw = 0, ct = 0;
+  return {
+    name, btnName,
+    dice: BUTTON_LIST[btnName].dice.map(s => {
+      if (typeof s === "string") {
+        const m = /^[pst](\d+)$/.exec(s); // special die: s6 = Shadow d6, t4 = Trip d4, p6 = Poison d6
+        if (m) return { sides:+m[1], value:roll(+m[1]), captured:false, special:s[0]==="s"?"shadow":s[0]==="t"?"trip":"poison" };
+        // swing die
+        const [min,max] = SWING_RANGES[s];
+        const sides = (swingSizes && swingSizes[sw] !== undefined) ? swingSizes[sw] : max;
+        sw++;
+        const d = { sides, value:roll(sides), captured:false, swing:s, min, max };
+        if (s === "C") {
+          const t = (customTypes && customTypes[ct] !== undefined) ? customTypes[ct] : "regular";
+          ct++;
+          if (t !== "regular") d.special = t;
+        }
+        return d;
+      }
+      return { sides:s, value:roll(s), captured:false };
+    }),
+    rounds:0, captured:[]
+  };
+}
+
+// Rebuild the swing-size pickers for both players from the selected characters.
+function updateSwing() {
+  const slots = [ ["btn1","sw1"], ["btn2","sw2"] ];
+  for (const [selId, boxId] of slots) {
+    const box = document.getElementById(boxId);
+    // Preserve the previous picker values so rebuilding (e.g. after pressing Fight)
+    // doesn't wipe the player's type/size choices.
+    const prev = {};
+    for (const id of Object.keys(pickerVals)) if (id.startsWith(boxId + "_")) prev[id] = pickerVals[id];
+    box.innerHTML = "";
+    const spec = BUTTON_LIST[document.getElementById(selId).value];
+    let swIdx = 0;
+    spec.dice.forEach((s, i) => {
+      if (typeof s !== "string") return;
+      if (/^[st]\d+$/.test(s)) return; // special dice (Shadow/Trip) need no size picker
+      const [min,max] = SWING_RANGES[s];
+      const row = document.createElement("label");
+      row.className = "swingRow";
+      const inp = document.createElement("select");
+      for (let v = min; v <= max; v++) {
+        const o = document.createElement("option");
+        o.value = v; o.textContent = `d${v}`;
+        inp.appendChild(o);
+      }
+      const idx = swIdx;
+      swIdx++;
+      if (s === "C") {
+        // Custom die: one dropdown for the type, one for the size.
+        const type = document.createElement("select");
+        type.id = `${boxId}_ct${idx}`;
+        for (const [val, txt] of [["regular","Regular"],["shadow","Shadow"],["trip","Trip"],["poison","Poison"]]) {
+          const o = document.createElement("option");
+          o.value = val; o.textContent = txt;
+          type.appendChild(o);
+        }
+        if (prev[type.id]) type.value = prev[type.id];
+        type.addEventListener("change", () => { pickerVals[type.id] = type.value; });
+        inp.id = `${boxId}_sw${idx}`;
+        inp.value = prev[inp.id] || max;
+        inp.addEventListener("change", () => { pickerVals[inp.id] = inp.value; });
+        row.innerHTML = `Die ${idx + 1}: `;
+        row.appendChild(type);
+        row.appendChild(inp);
+        box.appendChild(row);
+        return;
+      }
+      inp.id = `${boxId}_sw${idx}`;
+      inp.value = prev[inp.id] || max;
+      inp.addEventListener("change", () => { pickerVals[inp.id] = inp.value; });
+      row.innerHTML = s === "C" ? `Die ${idx + 1} (d${min}–d${max}): ` : `Swing die ${s} (d${min}–d${max}): `;
+      row.appendChild(inp);
+      box.appendChild(row);
+    });
+  }
+}
+
+function readSwingSizes(boxId) {
+  const out = [];
+  let i = 0;
+  while (document.getElementById(`${boxId}_sw${i}`)) {
+    out.push(parseInt(document.getElementById(`${boxId}_sw${i}`).value, 10));
+    i++;
+  }
+  return out;
+}
+
+function readCustomTypes(boxId) {
+  const out = [];
+  let i = 0;
+  while (document.getElementById(`${boxId}_ct${i}`)) {
+    out.push(document.getElementById(`${boxId}_ct${i}`).value);
+    i++;
+  }
+  return out;
+}
+
+function resolveRandom(selId) {
+  const sel = document.getElementById(selId);
+  if (sel.value !== "random") return sel.value;
+  const names = Object.keys(BUTTON_LIST).filter(n => n !== "Custom"); // Custom stays out of random rolls
+  const pick = names[Math.floor(Math.random() * names.length)];
+  sel.value = pick; // show what was rolled in the picker
+  return pick;
+}
+
+function startGame() {
+  const n1 = resolveRandom("btn1"), n2 = resolveRandom("btn2");
+  resolved1 = n1; resolved2 = n2;
+  updateSwing(); // random may have revealed swing dice — rebuild pickers with defaults
+  // If either character has swing dice, let the player(s) set sizes before the fight begins.
+  const hasSwing = readSwingSizes("sw1").length + readSwingSizes("sw2").length;
+  if (hasSwing) {
+    document.getElementById("beginRow").style.display = "block";
+    const b = document.getElementById("beginBtn");
+    b.style.display = "inline-block";
+    b.textContent = `Begin fight (${n1} vs ${n2})`;
+    return; // wait for the Begin button
+  }
+  beginFight(n1, n2);
+}
+
+function beginFight(n1, n2) {
+  document.getElementById("beginRow").style.display = "none";
+  G = {
+    p1: makePlayer(CUR ? CUR.name : "Player 1", n1, readSwingSizes("sw1"), readCustomTypes("sw1")),
+    p2: makePlayer(document.getElementById("ai").checked ? "Computer" : "Player 2", n2, readSwingSizes("sw2"), readCustomTypes("sw2")),
+    turn:null, sel:[], log:[], round:1, over:false, roundOver:false, aiLevel:document.getElementById("diff").value
+  };
+  document.getElementById("setup").style.display = "none";
+  document.getElementById("game").style.display = "block";
+  startRound();
+}
+
+function newGame() {
+  document.getElementById("game").style.display = "none";
+  document.getElementById("setup").style.display = "block";
+  G = null;
+}
+
+function log(msg) {
+  G.log.unshift(msg);
+  document.getElementById("log").innerHTML = G.log.map(m => `<div>${m}</div>`).join("");
+}
+
+function other(p) { return p === G.p1 ? G.p2 : G.p1; }
+function isAI() { return G.p2.name === "Computer"; }
+
+function startRound() {
+  // All dice are re-rolled at the start of each round; captured dice return to play.
+  G.p1.dice.forEach(d => { d.captured=false; d.value=roll(d.sides); });
+  G.p2.dice.forEach(d => { d.captured=false; d.value=roll(d.sides); });
+  G.p1.captured = []; G.p2.captured = [];
+  G.sel = []; G.roundOver = false;
+  log(`— Round ${G.round} — all dice re-rolled.`);
+  // Tournament rule: lowest single die goes first; compare next-lowest on ties.
+  // Trip dice do not count for going first.
+  const vals = p => p.dice.filter(d=>d.special!=="trip").map(d=>d.value).sort((a,b)=>a-b);
+  const a = vals(G.p1), b = vals(G.p2);
+  const n = Math.max(a.length, b.length);
+  G.turn = (() => {
+    for (let i = 0; i < n; i++) {
+      const x = a[i] ?? Infinity, y = b[i] ?? Infinity;
+      if (x < y) return G.p1;
+      if (y < x) return G.p2;
+    }
+    return Math.random() < 0.5 ? G.p1 : G.p2;
+  })();
+  log(`${G.p1.name}'s dice [${a.join(', ')||'—'}] — ${G.p2.name}'s dice [${b.join(', ')||'—'}]. Lowest non-Trip die goes first: ${G.turn.name}${(!a.length||!b.length)?" (Trip dice don't count)":""}.`);
+  render();
+  if (G.turn === G.p2 && isAI()) setTimeout(aiMove, 700);
+}
+
+function render() {
+  for (const [i,p] of [[1,G.p1],[2,G.p2]]) {
+    document.getElementById(`p${i}name`).textContent = `${p.name} — ${p.btnName}`;
+    const live = p.dice.filter(d=>!d.captured);
+    const kept = live.reduce((s,d)=>s + (d.special==="poison"?-1:1)*Math.ceil(d.sides/2),0);
+    const cap  = p.captured.reduce((s,d)=>s + (d.special==="poison"?-1:1)*d.sides,0);
+    // e.g. "captured 8 (20 - 6p - 6p)" — poison dice shown as negative terms
+    const capParts = p.captured.filter(d=>d.special!=="poison").map(d=>d.sides);
+    const capNeg   = p.captured.filter(d=>d.special==="poison").map(d=>`-${d.sides}p`);
+    const capStr   = capParts.length || capNeg.length
+      ? ` (captured ${cap} = ${capParts.join(" + ") || "0"}${capNeg.length ? " " + capNeg.join(" ") : ""})`
+      : " (no captures)";
+    const livePos  = live.filter(d=>d.special!=="poison").map(d=>Math.ceil(d.sides/2));
+    const liveNeg  = live.filter(d=>d.special==="poison").map(d=>`-${Math.ceil(d.sides/2)}p`);
+    const keptStr  = livePos.length || liveNeg.length
+      ? ` + kept ${kept} = ${livePos.join(" + ") || "0"}${liveNeg.length ? " " + liveNeg.join(" ") : ""}`
+      : " (nothing kept)";
+    document.getElementById(`p${i}score`).textContent =
+      (G.roundOver || G.over)
+        ? `Rounds won: ${p.rounds} · Round score: ${cap+kept} —${capStr}${keptStr}`
+        : `Rounds won: ${p.rounds} · Score so far: ${cap+kept} —${capStr}${keptStr}`;
+    document.getElementById(`p${i}box`).classList.toggle("active", G && G.turn===p && !G.over && !G.roundOver);
+    const box = document.getElementById(`p${i}dice`);
+    box.innerHTML = "";
+    p.dice.forEach((d, idx) => {
+      const el = document.createElement("div");
+      const selected = G.sel.some(s => s.p===p && s.idx===idx);
+      const targeted = G.targetIdx === idx && p === other(G.turn);
+      const rerolled = (G.lastRerolled||[]).some(r => r.p===p && r.idx===idx) && !(G.flashDone||[]).includes(p.name+idx);
+      const typeTag = d.special === "shadow" ? " s" : d.special === "trip" ? " t" : d.special === "poison" ? " p" : "";
+      const typeClass = d.special === "shadow" ? " shadow" : d.special === "trip" ? " trip" : d.special === "poison" ? " poison" : "";
+      el.className = "die" + typeClass + (d.captured ? " dead" : "") + (selected ? " sel" : "") + (targeted ? " target" : "") + (rerolled ? " rerolled" : "");
+      if (d.captured) { el.textContent = "✕"; el.title = "captured by opponent"; }
+      else el.innerHTML = `${d.value}<span class="size">d${d.sides}${d.swing && d.swing !== "C" ? " " + d.swing : typeTag}</span>`;
+      if (!d.captured && G && !G.over && !G.roundOver) el.onclick = () => selectDie(p, idx);
+      if (rerolled) setTimeout(() => { if (G) { G.flashDone = G.flashDone||[]; G.flashDone.push(p.name+idx); } }, 1000);
+      box.appendChild(el);
+    });
+  }
+  const st = document.getElementById("status");
+  const passBtn = document.getElementById("passBtn");
+  passBtn.disabled = !G || G.over || G.roundOver || (G.turn===G.p2 && isAI());
+  // Highlight Pass when the current (human) player has no legal attack.
+  const stuck = !!(G && !G.over && !G.roundOver && !(G.turn===G.p2 && isAI()) && G.turn && !legalAttacks(G.turn).length);
+  passBtn.classList.toggle("alert", stuck);
+  if (G.over) {
+    const w = G.p1.rounds>=3 ? G.p1 : G.p2;
+    const qs = BUTTON_LIST[w.btnName].quotes;
+    const q = qs[Math.floor(Math.random() * qs.length)];
+    st.innerHTML = `<span class="big">🏆 ${w.name} wins the match ${G.p1.rounds}–${G.p2.rounds}!</span>` +
+      `<em>“${q}”</em> — ${w.btnName}<br>Press “New game” to play again.`;
+    log(`🏆 ${w.name} (${w.btnName}) wins the match. “${q}”`);
+  } else if (G.roundOver) {
+    st.innerHTML = `<span class="big">Round ${G.round} over.</span>`;
+  } else if (stuck) {
+    st.innerHTML = `<span class="big">No legal move, please pass.</span>${G.turn.name}: press Pass.`;
+  } else {
+    const list = G.sel.map(s => s.p.dice[s.idx].value).join(" + ");
+    st.innerHTML = `<span class="big">Round ${G.round} — ${G.turn.name}'s turn</span>` +
+      (G.sel.length
+        ? `Selected ${G.sel.length} of your dice${list?` (${list})`:""}. Now click one of ${other(G.turn).name}'s dice to attack it.`
+        : `${G.turn.name}: click one of your dice (Power attack), several (Skill attack) — Shadow (attacks upward), Trip (rerolls both), Poison (scores negative).`);
+  }
+}
+
+function selectDie(p, idx) {
+  if (!G || G.over || G.roundOver || G.aiThinking) return;
+  if (p !== G.turn) {
+    if (G.sel.length) attemptCapture(p, idx);
+    return;
+  }
+  const found = G.sel.findIndex(s => s.p===p && s.idx===idx);
+  if (found >= 0) G.sel.splice(found, 1);
+  else G.sel.push({ p, idx });
+  render();
+}
+
+function attemptCapture(dp, didx) {
+  if (G.aiThinking) return; // never attack during the computer's staged move
+  const atk = G.sel.filter(s => s.p === G.turn).map(s => s.p.dice[s.idx]);
+  if (!atk.length) return;
+  const def = dp.dice[didx];
+  if (!def || def.captured) return;
+  const sum = atk.reduce((s,d)=>s+d.value,0);
+  let type = null;
+  if (atk.length === 1) {
+    const A = atk[0];
+    if (A.special === "shadow" && def.value >= A.value && def.value <= def.sides) type = "Shadow";
+    else if (A.special !== "shadow" && A.value >= def.value) type = "Power";
+    else if (A.special === "trip") type = "Trip";
+  } else if (sum === def.value && !atk.some(d=>d.special==="poison")) type = "Skill";
+  if (!type) {
+    const msg = `This is not a valid attack. ❌ Attacking d${def.sides} (showing ${def.value}) with [${atk.map(d=>d.value).join(", ")}]. Power: one die ≥ target. Shadow: one shadow die ≤ target. Trip: one trip die (rerolls both). Skill: dice must sum exactly.`;
+    log(msg);
+    G.sel = [];
+    render();
+    document.getElementById("status").innerHTML =
+      `<span class="big">This is not a valid attack.</span>Attacked d${def.sides} (showing ${def.value}) with [${atk.map(d=>d.value).join(", ")}]. Power: one die ≥ target. Skill: dice must sum exactly. Selection cleared — try again.`;
+    return;
+  }
+  const used = atk.map(d => d.value); // record values used, before re-rolling
+  performAttack(type, atk, dp, didx, sum);
+}
+
+// Resolves any attack type and ends the turn. Used by both the human and the AI.
+function performAttack(type, atk, dp, didx, sum) {
+  const def = dp.dice[didx];
+  const used = atk.map(d => d.value); // values used, before re-rolling
+  if (type === "Trip") {
+    // Both dice reroll; capture if the attacker's new roll >= the target's.
+    const na = roll(atk[0].sides), nv = roll(def.sides);
+    atk[0].value = na; def.value = nv;
+    G.lastRerolled = [{p:G.turn, idx:G.turn.dice.indexOf(atk[0])}, {p:dp, idx:didx}];
+    G.flashDone = [];
+    if (na >= nv) { def.captured = true; G.turn.captured.push(def); }
+    log(`🎲 ${G.turn.name} Trip attack: d${atk[0].sides} (${used[0]}) vs d${def.sides} (${used[1]}) — rerolled to ${na} vs ${nv}. ` +
+        (na >= nv ? `Capture! ${other(G.turn).name}'s die is taken.` : "No capture — both dice keep their new values."));
+    G.sel = [];
+    G.targetIdx = null;
+    render();
+    endTurn();
+    return;
+  }
+  for (const d of atk) d.value = roll(d.sides);
+  G.lastRerolled = atk.map(d => ({ p:G.turn, idx:G.turn.dice.indexOf(d) }));
+  G.flashDone = [];
+  def.captured = true;
+  G.turn.captured.push(def);
+  const flavor = type === "Shadow" ? " (attacks upward)" : "";
+  log(`⚔️ ${G.turn.name} ${type} attack${flavor}: [${used.join(type==="Skill" ? " + " : ", ")}] captures ${other(G.turn).name}'s d${def.sides} (showing ${def.value}).${type==="Skill" ? " Sum: " + sum + "." : ""} Attacker re-rolled to [${atk.map(d=>d.value).join(", ")}].`);
+  G.sel = [];            // highlight expires: dice were used and re-rolled
+  G.targetIdx = null;
+  render();
+  endTurn();
+}
+
+function legalAttacks(p) {
+  const live = p.dice.filter(d=>!d.captured);
+  const foes = other(p).dice.filter(d=>!d.captured);
+  const res = [];
+  for (const d of live) for (const f of foes) {
+    if (d.special !== "shadow" && d.value >= f.value) res.push({type:"Power", a:[d], t:f});
+    // Shadow attack: capture a die showing >= my value, but not above its own max.
+    if (d.special === "shadow" && f.value >= d.value && f.value <= f.sides) res.push({type:"Shadow", a:[d], t:f});
+    // Trip attack: always possible — both dice reroll and anything can happen.
+    if (d.special === "trip") res.push({type:"Trip", a:[d], t:f});
+  }
+  const clean = live.filter(d=>d.special!=="poison"); // poison dice never assist Skill attacks
+  for (let i=0;i<clean.length;i++)
+    for (let j=i+1;j<clean.length;j++) {
+      const s = clean[i].value + clean[j].value;
+      for (const f of foes) if (f.value === s) res.push({type:"Skill", a:[clean[i],clean[j]], t:f});
+      for (let k=j+1;k<clean.length;k++) {
+        const s2 = s + clean[k].value;
+        for (const f of foes) if (f.value === s2) res.push({type:"Skill", a:[clean[i],clean[j],clean[k]], t:f});
+      }
+    }
+  return res;
+}
+
+function endTurn() {
+  const l1 = G.p1.dice.some(d=>!d.captured);
+  const l2 = G.p2.dice.some(d=>!d.captured);
+  if (!l1 || !l2) { endRound(); return; }
+  G.turn = other(G.turn);
+  render();
+  if (G.turn === G.p2 && isAI()) setTimeout(aiMove, 700);
+}
+
+function endRound() {
+  G.roundOver = true;
+  const score = p => {
+    const live = p.dice.filter(d=>!d.captured);
+    const kept = live.reduce((s,d)=>s + (d.special==="poison"?-1:1)*Math.ceil(d.sides/2),0);
+    const cap  = p.captured.reduce((s,d)=>s + (d.special==="poison"?-1:1)*d.sides,0);
+    return cap + kept;
+  };
+  const s1 = score(G.p1), s2 = score(G.p2);
+  let msg = `Round ${G.round}: ${G.p1.name} ${s1} — ${G.p2.name} ${s2}. `;
+  if (s1 > s2) { G.p1.rounds++; msg += `${G.p1.name} wins the round!`; }
+  else if (s2 > s1) { G.p2.rounds++; msg += `${G.p2.name} wins the round!`; }
+  else msg += "Draw — this round will be replayed.";
+  log(msg);
+  // Detailed score breakdown for each player, so scoring can be audited.
+  const breakdown = p => {
+    const parts = p.captured.map(d => `${d.special==="poison"?"−":"+"}${d.sides}${d.special==="poison"?"(poison)":""} (captured)`);
+    for (const d of p.dice) if (!d.captured)
+      parts.push(`${d.special==="poison"?"−":"+"}${Math.ceil(d.sides/2)}${d.special==="poison"?"(poison)":""} (kept d${d.sides})`);
+    return parts.length ? parts.join(" ") : "nothing";
+  };
+  log(`🧮 ${G.p1.name} breakdown: ${breakdown(G.p1)} = ${s1}`);
+  log(`🧮 ${G.p2.name} breakdown: ${breakdown(G.p2)} = ${s2}`);
+  if (G.p1.rounds >= 3 || G.p2.rounds >= 3) { G.over = true; recordGame(); render(); return; }
+  render();
+  document.getElementById("status").innerHTML =
+    `<span class="big">${msg}</span><button class="primary" onclick="nextRound()">Next round</button> All dice will be re-rolled.`;
+}
+
+function nextRound() { G.round++; startRound(); }
+
+function doPass() {
+  if (!G || G.over || G.roundOver) return;
+  if (!legalAttacks(G.turn).length) {
+    log(`${G.turn.name} passes (no legal attack).`);
+    const o = other(G.turn);
+    if (!legalAttacks(o).length) { log("Both players passed — round ends."); endRound(); return; }
+    G.turn = o; render();
+    if (G.turn===G.p2 && isAI()) setTimeout(aiMove, 700);
+  } else {
+    log(`${G.turn.name} tried to pass but a legal attack exists. Attack or use dice so no attack is possible.`);
+  }
+}
+
+// The AI's move is played in three visible stages so a human can follow:
+// 1. highlight the dice it picks, 2. highlight the target, 3. resolve.
+const AI_STEP_MS = 900;
+
+// Best single capture the player could make, as die size (0 if none).
+function bestReplySize(p) {
+  const atks = legalAttacks(p);
+  return atks.reduce((m, a) => Math.max(m, a.t.sides), 0);
+}
+
+function chooseAIAttack(atks) {
+  if (G.aiLevel === "easy") {
+    return atks[Math.floor(Math.random() * atks.length)];
+  }
+  if (G.aiLevel === "normal") {
+    // Greedy: biggest captured die first, prefers Power, cheapest attackers.
+    return atks.slice().sort((x,y) =>
+      (y.t.sides - x.t.sides) ||
+      ((y.type === "Power") - (x.type === "Power")) ||
+      (x.a.length - y.a.length)
+    )[0];
+  }
+  // Hard: for each candidate, simulate it and subtract the opponent's best
+  // reply. Bonus when the move leaves the opponent with no legal attack.
+  return atks.map(a => {
+    const savedVals = a.a.map(d => d.value);
+    const wasCaptured = a.t.captured;
+    a.t.captured = true;
+    for (const d of a.a) d.value = roll(d.sides);
+    const reply = bestReplySize(G.p1);
+    const noReply = reply === 0;
+    a.a.forEach((d, i) => d.value = savedVals[i]); // restore
+    a.t.captured = wasCaptured;
+    // Value of what we capture now, minus what the opponent can grab back.
+    // Capturing a die the opponent would rather keep (big dice) is worth more.
+    const score = a.t.sides - reply + (noReply ? 12 : 0);
+    return { a, score };
+  }).sort((x,y) => y.score - x.score)[0].a;
+}
+
+function aiMove() {
+  if (!G || G.over || G.roundOver || G.turn !== G.p2) return;
+  const atks = legalAttacks(G.p2);
+  if (!atks.length) { G.aiThinking = false; doPass(); return; }
+  const best = chooseAIAttack(atks);
+  G.aiThinking = true;
+  // Stage 1: show the attacker dice as selected.
+  G.sel = best.a.map(d => ({ p:G.p2, idx:G.p2.dice.indexOf(d) }));
+  render();
+  document.getElementById("status").innerHTML =
+    `<span class="big">Computer is choosing dice…</span>Watch the highlighted dice.`;
+  // Stage 2: highlight the target.
+  setTimeout(() => {
+    if (!G || G.turn !== G.p2) { G.aiThinking = false; return; }
+    G.targetIdx = G.p2 === G.p1 ? -1 : G.p1.dice.indexOf(best.t);
+    render();
+    document.getElementById("status").innerHTML =
+      `<span class="big">Computer ${best.type} attack on d${best.t.sides} (${best.t.value})…</span>`;
+    // Stage 3: resolve the attack.
+    setTimeout(() => {
+      G.aiThinking = false; G.targetIdx = null;
+      if (!G || G.turn !== G.p2 || G.over || G.roundOver) return;
+      const used = best.a.map(d => d.value); // values used, before re-rolling
+      performAttack(best.type, best.a, G.p1, G.p1.dice.indexOf(best.t));
+    }, AI_STEP_MS);
+  }, AI_STEP_MS);
+}
+
+buildSelect("btn1");
+buildSelect("btn2");
+document.getElementById("btn1").value = "Socrates";
+document.getElementById("btn2").value = "Epicurus";
+document.getElementById("btn1").onchange = updateSwing;
+document.getElementById("btn2").onchange = updateSwing;
+updateSwing();
+restoreSession();
+</script>
+</body>
+</html>
