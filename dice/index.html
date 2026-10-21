@@ -240,7 +240,7 @@ function setAuthErr(m) { document.getElementById("authErr").textContent = m || "
 function setLobbyErr(m) { document.getElementById("lobbyErr").textContent = m || ""; }
 
 function showPanel(id) {
-  for (const p of ["auth", "lobby", "setup", "game", "profile"])
+  for (const p of ["auth", "lobby", "setup", "game", "profile", "campaign"])
     document.getElementById(p).style.display = p === id ? "block" : "none";
 }
 
@@ -827,7 +827,7 @@ function beginFight(n1, n2) {
   document.getElementById("beginRow").style.display = "none";
   G = {
     p1: makePlayer(ME ? ME.username : "Player 1", n1, readSwingSizes("sw1"), readCustomTypes("sw1")),
-    p2: makePlayer(isAI() ? "Computer" : "Player 2", n2, readSwingSizes("sw2"), readCustomTypes("sw2")),
+    p2: makePlayer(MODE === "local" ? "Computer" : "Player 2", n2, readSwingSizes("sw2"), readCustomTypes("sw2")),
     turn:null, sel:[], log:[], round:1, over:false, roundOver:false, aiLevel:document.getElementById("diff").value
   };
   document.getElementById("setup").style.display = "none";
