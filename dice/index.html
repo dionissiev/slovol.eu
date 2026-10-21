@@ -952,6 +952,10 @@ function selectDie(p, idx) {
     document.getElementById("status").innerHTML = `<span class="big">Not your turn.</span>Wait for ${G.turn ? G.turn.name : "your opponent"}.`;
     return;
   }
+  if (p !== G.turn) { // clicking an enemy die: attack if we have dice selected
+    if (G.sel.length) attemptCapture(p, idx);
+    return;
+  }
   const found = G.sel.findIndex(s => s.p===p && s.idx===idx);
   if (found >= 0) G.sel.splice(found, 1);
   else G.sel.push({ p, idx });
