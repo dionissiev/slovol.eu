@@ -74,7 +74,11 @@
   .cardGrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; margin-top:16px; }
   .campCard { background:#1f2937; border-radius:12px; padding:14px; border:2px solid #374151; }
   .campCard.complete { border-color:#a3e635; }
-  .campPortrait { width:56px; height:56px; border-radius:50%; object-fit:cover; image-rendering:pixelated; border:2px solid #4b5563; margin-bottom:8px; }
+  .campPortrait { width:56px; height:56px; border-radius:50%; object-fit:cover; image-rendering:pixelated; border:2px solid #4b5563; }
+  .campCard .headRow { display:flex; gap:10px; align-items:flex-start; margin-bottom:8px; }
+  .campCard .headRow .campName { font-size:1.05rem; margin:0 0 2px; }
+  .campCard .campYears { font-size:.72rem; color:#fbbf24; }
+  .campCard .campBio { font-size:.74rem; color:#d1d5db; line-height:1.35; margin-top:2px; }
   .campCard h3 { margin:0 0 2px; font-size:1.05rem; }
   .campCard .desc { font-size:.78rem; color:#9ca3af; margin-bottom:8px; }
   .campCard .qslot { font-size:.78rem; padding:5px 7px; border-radius:6px; background:#111827; margin-top:5px; color:#d1d5db; }
@@ -225,6 +229,32 @@ BUTTON_LIST["Custom"]       = { pron:"they", dice:["C","C","C","C","C"],    desc
 // Swing ranges (min–max sides the player may choose).
 const SWING_RANGES = { X:[4,20], V:[2,12], W:[2,16], S:[6,20], U:[1,30], Z:[6,30], Y:[1,20], C:[1,30] };
 
+// Short bios shown on the campaign cards: years + two sentences.
+const BIO = {
+  "Socrates":       { years:"c. 470–399 BC", bio:"An Athenian who wrote nothing himself, Socrates questioned everyone in the marketplace until they ran out of answers. Condemned to death for corrupting the youth, he drank the hemlock calmly — and became philosophy's first martyr." },
+  "Diogenes":       { years:"c. 412–323 BC", bio:"The Cynic who lived in a barrel and mockingly scouted the Athenian crowd with a lantern 'looking for an honest man'. He famously told Alexander the Great to step out of his sunlight." },
+  "Plato":          { years:"428–348 BC", bio:"Socrates' greatest student, Plato founded the Academy in Athens and wrote dialogues that still shape Western thought. His theory of Forms claims the world we see is only a shadow of a perfect one." },
+  "Aristotle":      { years:"384–322 BC", bio:"Plato's pupil and Alexander the Great's tutor, Aristotle catalogued nature and invented formal logic. He believed happiness comes from living virtuously, not from what fortune hands us." },
+  "Epicurus":       { years:"341–270 BC", bio:"The atomist who founded a garden-school in Athens and taught that pleasure — understood as simple, tranquil living — is the highest good. His 'lives unnoticed' creed was far humbler than the word 'epicurean' suggests." },
+  "Heraclitus":     { years:"c. 535–475 BC", bio:"The dark philosopher of Ephesus who wrote in riddles and believed everything flows — reality is constant change ruled by an underlying Logos. He resigned his kingship to study, alone." },
+  "Zhuangzi":       { years:"c. 369–286 BC", bio:"A minor Chinese official who became Daoism's great storyteller, filling his book with jokes, dream-questions and talking butterflies. He taught freedom through accepting the spontaneous flow of things." },
+  "Descartes":      { years:"1596–1650", bio:"The French soldier-turned-philosopher who doubted everything until only the doubting mind remained — 'I think, therefore I am'. He did his best thinking lying in bed, and gave mathematics its coordinate axes." },
+  "Schopenhauer":   { years:"1788–1860", bio:"The pessimist of Frankfurt who saw the world as driven by a blind, insatiable Will and art as our only escape. Known for his biting essays and a parlor poodle named Atman." },
+  "Camus":          { years:"1913–1960", bio:"The Algerian-born writer who insisted life is absurd — yet worth living anyway. Editor, Resistance member and Nobel laureate, he died young in a car crash with the unused train ticket in his pocket." },
+  "Nietzsche":      { years:"1844–1900", bio:"The philologist turned prophet who declared God dead and demanded we create our own values. Plagued by illness, he wrote in feverish aphorisms and collapsed into madness at 44." },
+  "Laozi":          { years:"c. 571 BC (legendary)", bio:"The legendary sage of Daoism, said to be a court archivist who rode off west on a water buffalo and left behind the Tao Te Ching. Teach the art of wu wei: accomplish by not forcing." },
+  "Wittgenstein":   { years:"1889–1951", bio:"The Austrian engineer who gave philosophy two systems — one for meaning, one against all systems at all. He inherited a fortune, gave it away, and designed his sister's house in glass and concrete." },
+  "Marcus Aurelius":{ years:"121–180", bio:"Roman emperor for nineteen years of plague and war, Marcus wrote his Stoic reflections in Greek by lamplight on campaign. His 'Meditations' were never meant for publication — a king arguing with himself." },
+  "Pythagoras":     { years:"c. 570–495 BC", bio:"The mystic-mathematician of Samos whose brotherhood worshipped numbers and banned beans. Legend says he proved the famous theorem — and that he refused to save a drowning man to keep from interfering with fate." },
+  "Orpheus":        { years:"mythic — no dates", bio:"The greatest mortal musician, whose lyre charmed beasts, stones and the lord of the dead himself. He went into Hades to bring back his wife Eurydice — and lost her by looking back." },
+  "Thales":         { years:"c. 624–546 BC", bio:"The Greek engineer and astronomer of Miletus who predicted a solar eclipse and is called the first philosopher. He held that water is the origin of everything — and cornered the olive-press market to prove philosophers could be rich." },
+  "Zeno":           { years:"c. 334–262 BC", bio:"The founder of Stoicism taught on a painted porch (stoa) in Athens, giving the school its name. His paradoxes of motion tormented mathematicians for two millennia." },
+  "Hypatia":        { years:"c. 360–415", bio:"Alexandria's celebrated mathematician, astronomer and teacher, head of a Neoplatonic school. She was murdered by a mob in a Christian riot — one of history's most lamented deaths of reason." },
+  "Machiavelli":    { years:"1469–1527", bio:"The Florentine diplomat who lost everything when the Medici returned, then wrote The Prince to teach rulers how power really works. His name became a byword for cunning — 'Machiavellian'." },
+  "Hobbes":         { years:"1588–1679", bio:"Born when his mother feared the Spanish Armada, Hobbes joked that fear and he were born twins. His Leviathan argued that without a sovereign, life is a war of all against all." },
+  "Beauvoir":       { years:"1908–1986", bio:"The Parisian existentialist whose The Second Sex founded modern feminism. She and Sartre — lifelong companions without marriage — edited Les Temps Modernes and reshaped how we think about freedom." },
+};
+
 let G = null;
 let resolved1 = null, resolved2 = null; // characters as resolved after Random rolls
 const pickerVals = {}; // last chosen value per picker id (survives rebuilds)
@@ -333,8 +363,10 @@ function renderCampaign() {
     const card = document.createElement("div");
     card.className = "campCard" + (got.length === 3 ? " complete" : "");
     card.innerHTML =
-      `<img class="campPortrait" src="img/${encodeURIComponent(name)}.png" alt="${name}" width="56" height="56">` +
-      `<h3>${name}</h3><div class="desc">${spec.desc}</div>` +
+      `<div class="headRow"><img class="campPortrait" src="img/${encodeURIComponent(name)}.png" alt="${name}" width="56" height="56">` +
+      `<div><h3 class="campName">${name}</h3>` +
+      (BIO[name] ? `<div class="campYears">${BIO[name].years}</div><div class="campBio">${BIO[name].bio}</div>` : "") + `</div></div>` +
+      `<div class="desc">${spec.desc}</div>` +
       got.map(i => `<div class="qslot"><b>Quote ${got.indexOf(i) + 1}</b>“${spec.quotes[i]}”</div>`).join("") +
       (got.length < 3 ? `<div class="qslot locked">Beat ${name} to earn quote ${got.length + 1} of 3…</div>` : "") +
       `<button class="primary" onclick="challenge('${name.replace(/'/g, "\\'")}')">⚔️ Challenge</button>`;
