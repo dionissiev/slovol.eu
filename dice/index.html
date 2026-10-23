@@ -132,6 +132,11 @@
   <h1 id="profTitle"></h1>
   <div class="stats" id="profStats"></div>
   <table class="hist" id="profTable"></table>
+  <div style="margin:14px 0 4px;display:flex;gap:8px;align-items:center">
+    <label style="font-size:.9rem">Username:</label>
+    <input id="profUsername" maxlength="20" style="flex:1;background:#0b1220;border:1px solid #334155;border-radius:8px;color:#e2e8f0;padding:6px 10px">
+    <button onclick="renameMe()">Save</button>
+  </div>
   <div class="controls"><button onclick="closeProfile()">Back</button><button onclick="doLogout()">Log out</button></div>
 </div>
 
@@ -194,7 +199,7 @@
 <script>
 // Buttons use only d4, d6, d8, d12, d20 as requested.
 const BUTTON_LIST = {
-  "Socrates": { pron:"he", dice:[4,6,8,12,20], desc:"Balanced starter recipe.", quotes:["I know that I know nothing.", "The unexamined life is not worth living.", "To know thyself is the beginning of wisdom."] },
+  "Socrates": { pron:"he", dice:[4,"p6",8,12,20], desc:"Balanced core with one poison d6 — hemlock in the pocket.", quotes:["I know that I know nothing.", "The unexamined life is not worth living.", "To know thyself is the beginning of wisdom."] },
   "Diogenes": { pron:"he", dice:[4,4,6,12,20], desc:"Two d4s — great for skill attacks.", quotes:["It is not that I am mad; my head is just different from yours.", "I am a citizen of the world.", "Stand out of my sunlight."] },
   "Plato":    { pron:"he", dice:[4,6,6,12,20], desc:"Twin d6s for clever sums.", quotes:["Courage is knowing what not to fear.", "The beginning is the most important part of the work.", "Wise men speak because they have something to say; fools because they have to say something."] },
   "Aristotle":{ pron:"he", dice:[6,8,8,12,20], desc:"Midweight bruiser.", quotes:["Knowing yourself is the beginning of all wisdom.", "It is the mark of an educated mind to entertain a thought without accepting it.", "We are what we repeatedly do."] },
@@ -206,7 +211,7 @@ const BUTTON_LIST = {
   // Swing characters: X=4–20, V=2–12, W=2–16. You pick the size at setup.
   "Schopenhauer": { pron:"he", dice:[2,12,12,20,"X"], desc:"One X swing die — you choose its size (4–20).", quotes:["Talent hits a target no one else can hit; genius hits a target no one else can see.", "We forfeit three-fourths of ourselves to be like other people.", "A man can be himself only so long as he is alone."] },
   "Camus":    { pron:"he", dice:[6,"X",8,12,"V"], desc:"X (4–20) and V (2–12) swings.", quotes:["In the midst of winter, I found there was, within me, an invincible summer.", "Man is the only creature who refuses to be what he is.", "In order to understand the world, one has to turn away from it on occasion."] },
-  "Nietzsche": { pron:"he", dice:["W","W",12,12,20], desc:"Two W swings (2–16) — tiny or huge.", quotes:["That which does not kill us makes us stronger.", "There are no facts, only interpretations.", "He who has a why to live can bear almost any how."] },
+  "Nietzsche": { pron:"he", dice:[20,20,"W","W",12], desc:"Maximum power — 82 sides total. Self-overcoming, diceform.", quotes:["That which does not kill us makes us stronger.", "There are no facts, only interpretations.", "He who has a why to live can bear almost any how."] },
   "Zhuangzi2": null, // placeholder removed below
 };
 delete BUTTON_LIST["Zhuangzi2"];
@@ -221,7 +226,7 @@ BUTTON_LIST["Thales"]      = { pron:"he", dice:["t4","t4",8,12,20],      desc:"T
 BUTTON_LIST["Zeno"]        = { pron:"he", dice:["t6","t6","t6","t6","t6"], desc:"Five Trip d6s — every die is a gamble.", quotes:["What is in motion is never at rest.", "You can never step into the same river twice — not even once, really.", "The goal of life is living in agreement with nature."] };
 BUTTON_LIST["Hypatia"]     = { pron:"she", dice:[4,"s8",12,"t6",20],     desc:"Shadow d8, Trip d6 and heavy hitters.", quotes:["Reserve your right to think, for even to think wrongly is better than not to think at all.", "As vector and magnitude have their sign, so thought has its direction.", "Life is an unfoldment, and the further we travel the more truth we can comprehend."] };
 // Poison dice (p): attack with Power (never as Skill helpers) but score NEGATIVE.
-BUTTON_LIST["Machiavelli"] = { pron:"he", dice:["p6","p6","p6",12,20],   desc:"Three poison d6s — an army of regrets.", quotes:["Everyone sees what you appear to be; few experience what you really are.", "It is better to act and repent than not to act and regret.", "Never attempt to win by force what can be won by deception."] };
+BUTTON_LIST["Machiavelli"] = { pron:"he", dice:["p6","s6","p8",12,20],   desc:"Shadow and poison entwined — win by deceit.", quotes:["Everyone sees what you appear to be; few experience what you really are.", "It is better to act and repent than not to act and regret.", "Never attempt to win by force what can be won by deception."] };
 BUTTON_LIST["Hobbes"]      = { pron:"he", dice:[4,"p6",8,12,20],        desc:"One poison d6 — powerful, but it will cost someone.", quotes:["Life is nasty, brutish and short.", "The condition of man is a condition of war of everyone against everyone.", "Fear and I were born twins."] };
 BUTTON_LIST["Beauvoir"]    = { pron:"she", dice:["p4","p4",10,12,"X"],   desc:"Twin poison d4s plus an X swing.", quotes:["One is not born, but rather becomes, a woman.", "Change your life today. Don't gamble on the future.", "I am incapable of conceiving infinity, and yet I do not accept finity."] };
 BUTTON_LIST["Custom"]       = { pron:"they", dice:["C","C","C","C","C"],    desc:"Pick type (regular, shadow, trip, poison) and size for each of five dice.", quotes:["Nothing is true; everything is permitted — on the dice table.", "A hero is no braver than an ordinary man, but he is brave five minutes longer.", "Do not go where the path may lead; go instead where there is no path."] };
@@ -308,7 +313,19 @@ async function afterSignIn(session) {
   ME = { id: u.id, email: u.email, username: prof?.username || username };
   document.getElementById("profBtn").textContent = `My stats (${ME.username})`;
   document.getElementById("profBtn").style.display = "inline-block";
-  loadCampaign();
+  // Carry over any guest progress made on this device into the account.
+  let guestCP = {};
+  try { guestCP = JSON.parse(localStorage.getItem(campaignStorageKey()) || "{}"); } catch {}
+  await loadCampaign();
+  if (Object.keys(guestCP).length) {
+    let merged = false;
+    for (const [name, idxs] of Object.entries(guestCP)) {
+      const got = CP[name] || [];
+      for (const i of idxs) if (!got.includes(i)) { got.push(i); merged = true; }
+      if (got.length) CP[name] = got;
+    }
+    if (merged) { saveCampaign(); localStorage.removeItem(campaignStorageKey()); }
+  }
   enterLobby();
 }
 
@@ -321,13 +338,15 @@ function doGuest() {
 // ---------- Campaign ----------
 let CP = null;          // { "Socrates": [0,2], ... } — collected quote indices per character
 let CAMPAIGN_OPP = null; // the philosopher being challenged
+let MATCH_QUOTE = null;  // { name, idx } — the quote shown at match end, matching what was earned
 const CAMP_TOTAL = Object.keys(BUTTON_LIST).length * 3;
 
 function campaignStorageKey() { return ME ? "dfcamp_" + ME.id : "dfcamp_guest"; }
 
 async function loadCampaign() {
   if (ME) {
-    const { data } = await sb.from("campaign").select("quotes").eq("player_id", ME.id).maybeSingle();
+    const { data, error } = await sb.from("campaign").select("quotes").eq("player_id", ME.id).maybeSingle();
+    if (error) console.warn("Campaign load failed:", error.message);
     CP = data?.quotes || {};
   } else {
     // Guests keep progress on this device.
@@ -336,9 +355,16 @@ async function loadCampaign() {
   updateCampProg();
 }
 
-function saveCampaign() {
+async function saveCampaign() {
   updateCampProg();
-  if (ME) sb.from("campaign").upsert({ player_id: ME.id, quotes: CP, updated_at: new Date().toISOString() });
+  if (ME) {
+    const { error } = await sb.from("campaign").upsert({ player_id: ME.id, quotes: CP, updated_at: new Date().toISOString() });
+    if (error) {
+      console.warn("Campaign save failed:", error.message);
+      const el = document.getElementById("status");
+      if (el) el.innerHTML += `<br><em style="color:#f87171">⚠️ Couldn't save campaign progress: ${error.message}</em>`;
+    }
+  }
   else localStorage.setItem(campaignStorageKey(), JSON.stringify(CP));
 }
 
@@ -415,6 +441,7 @@ async function awardCampaign() {
       const q = left[Math.floor(Math.random() * left.length)];
       got.push(q);
       CP[CAMPAIGN_OPP] = got;
+      MATCH_QUOTE = { name: CAMPAIGN_OPP, idx: q };
       saveCampaign();
       const done = got.length === 3;
       const total = campCollected();
@@ -425,14 +452,15 @@ async function awardCampaign() {
       log(`📖 ${msg}`);
     }
   } else {
-    log(`Loss accepted. After contemplating the defeat, ${spec.pron === "she" ? "she" : spec.pron === "he" ? "he" : "they"} offers a consolation thought: “${spec.quotes[Math.floor(Math.random() * spec.quotes.length)]}”`);
+    MATCH_QUOTE = { name: CAMPAIGN_OPP, idx: Math.floor(Math.random() * spec.quotes.length) };
+    log(`Loss accepted. After contemplating the defeat, ${spec.pron === "she" ? "she" : spec.pron === "he" ? "he" : "they"} offers a consolation thought: “${spec.quotes[MATCH_QUOTE.idx]}”`);
   }
   CAMPAIGN_OPP = null;
 }
 
 function enterLobby() {
   document.getElementById("lobbyHi").textContent =
-    ME ? `Signed in as ${ME.username} — start or join a match.` : "Playing as guest — online play needs a (free) account; the computer opponent works either way.";
+    ME ? `Signed in as ${ME.username}.` : "Playing as guest.";
   showPanel("lobby");
 }
 
@@ -449,30 +477,48 @@ async function restoreSession() {
   showPanel("auth");
 }
 
+async function renameMe() {
+  const u = document.getElementById("profUsername").value.trim();
+  if (u.length < 2) return alert("Username must be at least 2 characters.");
+  if (u === ME.username) return;
+  const { data: taken } = await sb.from("profiles").select("id").eq("username", u).maybeSingle();
+  if (taken) return alert("That username is already taken.");
+  const { error } = await sb.from("profiles").update({ username: u }).eq("id", ME.id);
+  if (error) return alert("Could not rename: " + error.message);
+  ME.username = u;
+  await sb.auth.updateUser({ data: { username: u } });
+  document.getElementById("profTitle").textContent = `📊 ${u}`;
+  document.getElementById("profBtn").textContent = `My stats (${u})`;
+  enterLobby();
+}
+
 async function showProfile() {
   if (!ME) return;
   const { data: prof } = await sb.from("profiles").select("*").eq("id", ME.id).maybeSingle();
   const s = prof || { games: 0, wins: 0 };
   document.getElementById("profTitle").textContent = `📊 ${ME.username}`;
+  document.getElementById("profUsername").value = ME.username;
   document.getElementById("profStats").innerHTML =
     `<div><b>${s.games}</b>games</div><div><b>${s.wins}</b>wins</div>` +
     `<div><b>${s.games ? Math.round(100 * s.wins / s.games) : 0}%</b>win rate</div>`;
-  // Recent online matches from the matches table.
+  // Recent matches from the matches table (online + vs computer).
   const { data: ms } = await sb.from("matches")
-    .select("status,created_at,winner,p1,p2")
+    .select("status,created_at,winner,p1,p2,state")
     .or(`p1.eq.${ME.id},p2.eq.${ME.id}`).order("created_at", { ascending: false }).limit(15);
   const { data: names } = await sb.from("profiles").select("id,username");
   const nm = id => (names?.find(n => n.id === id) || {}).username || "?";
   const rows = (ms || []).map(m => {
     const oppId = m.p1 === ME.id ? m.p2 : m.p1;
+    const oppName = (!oppId && m.state && m.state.opponent) ? m.state.opponent
+      : oppId ? nm(oppId) : "Computer";
     const res = m.status !== "finished" ? m.status
       : m.winner === ME.id ? "win" : m.winner ? "loss" : "draw";
-    return `<tr><td>${m.created_at.slice(0, 16).replace("T", " ")}</td><td>${oppId ? nm(oppId) : "—"}</td>` +
+    return `<tr><td>${m.created_at.slice(0, 16).replace("T", " ")}</td><td>${oppName}</td>` +
       `<td style="color:${res === "win" ? "#a3e635" : res === "loss" ? "#f87171" : "#9ca3af"}">${res}</td></tr>`;
   });
   document.getElementById("profTable").innerHTML =
     `<tr><th>When</th><th>Opponent</th><th>Result</th></tr>` +
-    (rows.length ? rows.join("") : `<tr><td colspan="3" style="color:#9ca3af">No online matches yet.</td></tr>`);
+    (rows.length ? rows.join("") : `<tr><td colspan="3" style="color:#9ca3af">No matches yet.</td></tr>`);
   showPanel("profile");
 }
 
@@ -701,10 +747,20 @@ async function recordOnlineResult() {
 async function recordGame() {
   if (!ME || !G.over) return;
   if (isOnline()) return recordOnlineResult();
-  // Local (vs computer) match — bump the profile stats.
+  // Local (vs computer) match — bump the profile stats and record a history row.
   const iWon = G.p1.rounds > G.p2.rounds;
   const { data: prof } = await sb.from("profiles").select("games,wins").eq("id", ME.id).maybeSingle();
   if (prof) await sb.from("profiles").update({ games: (prof.games || 0) + 1, wins: (prof.wins || 0) + (iWon ? 1 : 0) }).eq("id", ME.id);
+  if (prof) {
+    const oppName = G.p2.name || "Computer";
+    const { error: mErr } = await sb.from("matches").insert({
+      p1: ME.id, p2: null, status: "finished",
+      state: { opponent: oppName, vsComputer: true },
+      winner: iWon ? ME.id : null,
+      log: []
+    });
+    if (mErr) console.warn("history row failed:", mErr.message);
+  }
 }
 
 function roll(sides) { return 1 + Math.floor(Math.random() * sides); }
@@ -956,7 +1012,10 @@ function render() {
     const w = G.p1.rounds>=3 ? G.p1 : G.p2;
     const l = w === G.p1 ? G.p2 : G.p1;
     const qs = BUTTON_LIST[l.btnName].quotes;
-    const q = qs[Math.floor(Math.random() * qs.length)];
+    // Show exactly the quote that was awarded (or the consolation one on a loss),
+    // so the banner always matches the card in the campaign book.
+    const qi = MATCH_QUOTE && MATCH_QUOTE.name === l.btnName ? MATCH_QUOTE.idx : Math.floor(Math.random() * qs.length);
+    const q = qs[qi];
     const poss = l.pron === "she" ? "her" : l.pron === "he" ? "his" : "their";
     st.innerHTML = `<span class="big">🏆 ${w.name} wins the match ${G.p1.rounds}–${G.p2.rounds}!</span>` +
       `<em>After contemplating ${poss} loss, ${l.name} (${l.btnName}) shares ${poss} wisdom: “${q}”</em><br>Press “New game” to play again.`;
