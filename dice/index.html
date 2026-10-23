@@ -307,9 +307,11 @@ async function doLogin() {
 async function afterSignIn(session) {
   const u = session.user;
   let username = u.user_metadata?.username || "player";
-  // Trigger may have missed the username (e.g. first login before trigger ran) — patch it in.
+  // Only create/patch the profile when it is MISSING — never overwrite a
+  // username the player already has (e.g. one set via "Save" on My stats).
   const { data: prof } = await sb.from("profiles").select("username").eq("id", u.id).maybeSingle();
-  if (prof && prof.username !== username) await sb.from("profiles").update({ username }).eq("id", u.id);
+  if (!prof && username) await sb.from("profiles").insert({ id: u.id, username }).select().single()
+    .then(r => { if (r.error && r.error.code === "23505") username = username + "-" + u.id.slice(0, 4); });
   ME = { id: u.id, email: u.email, username: prof?.username || username };
   document.getElementById("profBtn").textContent = `My stats (${ME.username})`;
   document.getElementById("profBtn").style.display = "inline-block";
@@ -820,7 +822,7 @@ function updateSwing() {
     let swIdx = 0;
     spec.dice.forEach((s, i) => {
       if (typeof s !== "string") return;
-      if (/^[st]\d+$/.test(s)) return; // special dice (Shadow/Trip) need no size picker
+      if (/^[pst]\d+$/.test(s)) return; // special dice (Shadow/Trip/Poison) need no size picker
       const [min,max] = SWING_RANGES[s];
       const row = document.createElement("label");
       row.className = "swingRow";
