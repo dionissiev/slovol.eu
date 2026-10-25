@@ -360,7 +360,11 @@ async function loadCampaign() {
 async function saveCampaign() {
   updateCampProg();
   if (ME) {
-    const { error } = await sb.from("campaign").upsert({ player_id: ME.id, quotes: CP, updated_at: new Date().toISOString() });
+    // player_id is a UNIQUE column but not the table's primary key, so the
+    // conflict target must be given explicitly or Postgres rejects the insert.
+    const { error } = await sb.from("campaign").upsert(
+      { player_id: ME.id, quotes: CP, updated_at: new Date().toISOString() },
+      { onConflict: "player_id" });
     if (error) {
       console.warn("Campaign save failed:", error.message);
       const el = document.getElementById("status");
@@ -497,30 +501,49 @@ async function renameMe() {
 async function showProfile() {
   if (!ME) return;
   const { data: prof } = await sb.from("profiles").select("*").eq("id", ME.id).maybeSingle();
-  const s = prof || { games: 0, wins: 0 };
   document.getElementById("profTitle").textContent = `📊 ${ME.username}`;
   document.getElementById("profUsername").value = ME.username;
-  document.getElementById("profStats").innerHTML =
-    `<div><b>${s.games}</b>games</div><div><b>${s.wins}</b>wins</div>` +
-    `<div><b>${s.games ? Math.round(100 * s.wins / s.games) : 0}%</b>win rate</div>`;
-  // Recent matches from the matches table (online + vs computer).
+  // Recent matches from the matches table (campaign + practice + online).
   const { data: ms } = await sb.from("matches")
     .select("status,created_at,winner,p1,p2,state")
-    .or(`p1.eq.${ME.id},p2.eq.${ME.id}`).order("created_at", { ascending: false }).limit(15);
+    .or(`p1.eq.${ME.id},p2.eq.${ME.id}`).order("created_at", { ascending: false }).limit(200);
   const { data: names } = await sb.from("profiles").select("id,username");
   const nm = id => (names?.find(n => n.id === id) || {}).username || "?";
   const rows = (ms || []).map(m => {
     const oppId = m.p1 === ME.id ? m.p2 : m.p1;
     const oppName = (!oppId && m.state && m.state.opponent) ? m.state.opponent
       : oppId ? nm(oppId) : "Computer";
+    const mode = (m.state && m.state.mode) || (m.p2 ? "multiplayer" : "practice");
+    // Prefer the stored result; only fall back to winner inference for old rows.
     const res = m.status !== "finished" ? m.status
+      : m.state && m.state.result ? m.state.result
       : m.winner === ME.id ? "win" : m.winner ? "loss" : "draw";
-    return `<tr><td>${m.created_at.slice(0, 16).replace("T", " ")}</td><td>${oppName}</td>` +
-      `<td style="color:${res === "win" ? "#a3e635" : res === "loss" ? "#f87171" : "#9ca3af"}">${res}</td></tr>`;
+    return { when: m.created_at.slice(0, 16).replace("T", " "), oppName, res, mode };
   });
+  // Per-mode stats over finished games.
+  const MODES = ["campaign", "practice", "multiplayer"];
+  const stat = md => {
+    const fin = rows.filter(r => r.mode === md && (r.res === "win" || r.res === "loss" || r.res === "draw"));
+    const wins = fin.filter(r => r.res === "win").length;
+    return { g: fin.length, w: wins,
+      pct: fin.length ? Math.round(100 * wins / fin.length) : 0 };
+  };
+  const all = { g: 0, w: 0 };
+  const statHtml = MODES.map(md => {
+    const st = stat(md); all.g += st.g; all.w += st.w;
+    return `<div><b>${st.g}</b>${md} games</div><div><b>${st.w}</b>${md} wins</div>` +
+      `<div><b>${st.pct}%</b>${md} win rate</div>`;
+  }).join("") +
+    `<div style="border-top:1px solid #374151;padding-top:6px"><b>${all.g}</b>all games</div>` +
+    `<div style="border-top:1px solid #374151;padding-top:6px"><b>${all.w}</b>all wins</div>` +
+    `<div style="border-top:1px solid #374151;padding-top:6px"><b>${all.g ? Math.round(100 * all.w / all.g) : 0}%</b>all win rate</div>`;
+  document.getElementById("profStats").innerHTML = statHtml;
   document.getElementById("profTable").innerHTML =
     `<tr><th>When</th><th>Opponent</th><th>Result</th></tr>` +
-    (rows.length ? rows.join("") : `<tr><td colspan="3" style="color:#9ca3af">No matches yet.</td></tr>`);
+    (rows.length ? rows.map(r =>
+      `<tr><td>${r.when}</td><td>${r.oppName}</td>` +
+      `<td style="color:${r.res === "win" ? "#a3e635" : r.res === "loss" ? "#f87171" : "#9ca3af"}">${r.res}</td></tr>`).join("")
+    : `<tr><td colspan="3" style="color:#9ca3af">No matches yet.</td></tr>`);
   showPanel("profile");
 }
 
@@ -754,10 +777,14 @@ async function recordGame() {
   const { data: prof } = await sb.from("profiles").select("games,wins").eq("id", ME.id).maybeSingle();
   if (prof) await sb.from("profiles").update({ games: (prof.games || 0) + 1, wins: (prof.wins || 0) + (iWon ? 1 : 0) }).eq("id", ME.id);
   if (prof) {
-    const oppName = G.p2.name || "Computer";
+    // Campaign fights are also "local" matches — tag the mode so the stats
+    // page can split campaign / practice / multiplayer.
+    const mode = CAMPAIGN_OPP ? "campaign" : "practice";
+    const oppName = `Computer — ${G.p2.btnName || "?"} (${G.aiLevel || "normal"})`;
+    // Store the result explicitly: winner=null alone can't tell a loss from a draw.
     const { error: mErr } = await sb.from("matches").insert({
       p1: ME.id, p2: null, status: "finished",
-      state: { opponent: oppName, vsComputer: true },
+      state: { opponent: oppName, vsComputer: true, mode, result: iWon ? "win" : "loss" },
       winner: iWon ? ME.id : null,
       log: []
     });
