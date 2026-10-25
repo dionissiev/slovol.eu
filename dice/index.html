@@ -85,6 +85,10 @@
   .campCard .qslot.locked { color:#4b5563; font-style:italic; }
   .campCard .qslot b { color:#fbbf24; font-size:.7rem; display:block; margin-bottom:2px; }
   .campCard button { margin-top:10px; width:100%; padding:7px; font-size:.85rem; }
+  /* Bottom navigation bar */
+  .bottomNav { position:fixed; left:0; right:0; bottom:0; display:flex; justify-content:center; gap:10px;
+               padding:10px; background:rgba(17,24,39,.92); border-top:1px solid #374151; z-index:10; }
+  .bottomNav button { min-width:120px; }
 </style>
 </head>
 <body>
@@ -125,7 +129,6 @@
   <h1>📜 Campaign</h1>
   <div class="sub" id="campSub">Beat a philosopher to earn one of their three quotes. Collect all three from each to complete your book of wisdom.</div>
   <div class="cardGrid" id="campGrid"></div>
-  <div class="controls"><button onclick="enterLobby()">Back</button></div>
 </div>
 
 <div class="panel" id="profile" style="display:none">
@@ -137,7 +140,7 @@
     <input id="profUsername" maxlength="20" style="flex:1;background:#0b1220;border:1px solid #334155;border-radius:8px;color:#e2e8f0;padding:6px 10px">
     <button onclick="renameMe()">Save</button>
   </div>
-  <div class="controls"><button onclick="closeProfile()">Back</button><button onclick="doLogout()">Log out</button></div>
+  <div class="controls"><button onclick="renameMe()">Save username</button></div>
 </div>
 
 <div class="panel" id="setup" style="display:none">
@@ -194,6 +197,11 @@
     <button onclick="showProfile()" id="profBtn" style="display:none">My stats</button>
   </div>
   <div class="log" id="log"></div>
+</div>
+
+<div class="bottomNav" id="bottomNav" style="display:none">
+  <button id="navBack" onclick="navBack()">← Back</button>
+  <button onclick="doLogout()">Log out</button>
 </div>
 
 <script>
@@ -277,6 +285,31 @@ function setLobbyErr(m) { document.getElementById("lobbyErr").textContent = m ||
 function showPanel(id) {
   for (const p of ["auth", "lobby", "setup", "game", "profile", "campaign"])
     document.getElementById(p).style.display = p === id ? "block" : "none";
+  updateNav(id);
+}
+
+// ---- Bottom navigation bar ----
+const NAV_BACK = { campaign: "lobby", setup: "lobby", game: "lobby", profile: null }; // null = dynamic
+function updateNav(id) {
+  const nav = document.getElementById("bottomNav");
+  const back = document.getElementById("navBack");
+  const show = id !== "auth"; // every signed-in page gets the bar
+  nav.style.display = show ? "flex" : "none";
+  // On the lobby there's nowhere to go back to — hide just the Back button.
+  back.style.display = id === "lobby" ? "none" : "inline-block";
+  back.textContent = id === "game" ? "← Leave match" : "← Back";
+}
+function navBack() {
+  const id = ["lobby", "setup", "game", "profile", "campaign", "auth"]
+    .find(p => document.getElementById(p).style.display === "block");
+  if (id === "campaign" || id === "setup") {
+    CAMPAIGN_OPP = null; // abandon a pending challenge
+    enterLobby();
+  } else if (id === "game") {
+    newGame(); // leaves the online match too
+  } else if (id === "profile") {
+    closeProfile();
+  }
 }
 
 async function doRegister() {
