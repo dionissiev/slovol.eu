@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dice Fight</title>
+<meta name="description" content="A dice battle game inspired by Button Men — play against the computer or a friend online.">
+<meta name="theme-color" content="#111827">
+<!-- Tab icon: two dice. Inline SVG first so the icon shows even if only index.html is deployed. -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0Ij4KICA8dGl0bGU+RGljZSBGaWdodDwvdGl0bGU+CiAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTMiIGZpbGw9IiMxMTE4MjciLz4KICA8ZyB0cmFuc2Zvcm09InJvdGF0ZSgtMTMgMjIgNDIpIj4KICAgIDxyZWN0IHg9IjYuMjUiIHk9IjI2LjI1IiB3aWR0aD0iMzEuNSIgaGVpZ2h0PSIzMS41IiByeD0iNi41IiBmaWxsPSIjZjNmNGY2Ii8+CiAgICA8ZyBmaWxsPSIjMTExODI3Ij4KICAgICAgPGNpcmNsZSBjeD0iMTIuNzUiIGN5PSIzMi43NSIgcj0iMy40Ii8+CiAgICAgIDxjaXJjbGUgY3g9IjI3Ljc1IiBjeT0iMzIuNzUiIHI9IjMuNCIvPgogICAgICA8Y2lyY2xlIGN4PSIyMC4yNSIgY3k9IjQwLjI1IiByPSIzLjQiLz4KICAgICAgPGNpcmNsZSBjeD0iMTIuNzUiIGN5PSI0Ny43NSIgcj0iMy40Ii8+CiAgICAgIDxjaXJjbGUgY3g9IjI3Ljc1IiBjeT0iNDcuNzUiIHI9IjMuNCIvPgogICAgPC9nPgogIDwvZz4KICA8ZyB0cmFuc2Zvcm09InJvdGF0ZSgxNSA0NSAyMSkiPgogICAgPHJlY3QgeD0iMjkuMjUiIHk9IjUuMjUiIHdpZHRoPSIzMS41IiBoZWlnaHQ9IjMxLjUiIHJ4PSI2LjUiIGZpbGw9IiNmYmJmMjQiLz4KICAgIDxnIGZpbGw9IiMxMTE4MjciPgogICAgICA8Y2lyY2xlIGN4PSIzNS43NSIgY3k9IjExLjc1IiByPSIzLjQiLz4KICAgICAgPGNpcmNsZSBjeD0iNDMuMjUiIGN5PSIxOS4yNSIgcj0iMy40Ii8+CiAgICAgIDxjaXJjbGUgY3g9IjUwLjc1IiBjeT0iMjYuNzUiIHI9IjMuNCIvPgogICAgPC9nPgogIDwvZz4KPC9zdmc+Cg==">
+<link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
+<link rel="icon" type="image/png" sizes="128x128" href="img/favicon-128.png">
+<link rel="apple-touch-icon" href="img/icon-180.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <style>
@@ -89,6 +96,45 @@
   .bottomNav { position:fixed; left:0; right:0; bottom:0; display:flex; justify-content:center; gap:10px;
                padding:10px; background:rgba(17,24,39,.92); border-top:1px solid #374151; z-index:10; }
   .bottomNav button { min-width:120px; }
+  /* Basic rules on the lobby */
+  .rules { margin-top:16px; background:#1f2937; border-radius:12px; padding:14px 16px; font-size:.8rem; color:#d1d5db; line-height:1.55; }
+  .rules h3 { font-size:.9rem; color:#f3f4f6; margin-bottom:6px; }
+  .rules p + p, .rules ul + p { margin-top:7px; }
+  .rules ul { margin:4px 0 0 18px; }
+  .rules li { margin-top:3px; }
+  .rules b { color:#fbbf24; }
+  .rules em { color:#e5e7eb; font-style:normal; text-decoration:underline dotted; }
+  /* Campaign progress bar — text sits inside the bar */
+  .progWrap { position:relative; max-width:520px; margin:14px auto 0; height:26px; border-radius:999px;
+              background:#1f2937; border:1px solid #374151; overflow:hidden; }
+  .progFill { position:absolute; top:0; bottom:0; left:0; width:0%; border-radius:999px;
+              background:linear-gradient(90deg,#a3e635,#fbbf24); transition:width .4s ease; }
+  .progText { position:relative; text-align:center; line-height:24px; font-size:.82rem; font-weight:700;
+              color:#f9fafb; letter-spacing:.06em; text-shadow:0 1px 3px rgba(0,0,0,.75); }
+  .progLegend { text-align:center; font-size:.72rem; color:#9ca3af; margin-top:8px; line-height:1.7; }
+  /* Dice sets on the campaign cards */
+  .campDice { display:flex; flex-wrap:wrap; gap:5px; margin:8px 0 4px; }
+  .miniDie { min-width:28px; height:26px; padding:0 6px; border-radius:7px; display:inline-flex;
+             align-items:center; justify-content:center; font-size:.7rem; font-weight:700; letter-spacing:.02em;
+             background:#334155; color:#e5e7eb; border:1px solid #4b5563; cursor:help; }
+  .miniDie.shadow { background:#7c3aed; border-color:#8b5cf6; color:#fff; }
+  .miniDie.trip   { background:#d97706; border-color:#f59e0b; color:#fff; }
+  .miniDie.poison { background:#65a30d; border-color:#84cc16; color:#fff; }
+  .miniDie.swing  { background:#1e3a8a; border-color:#3b82f6; color:#dbeafe; }
+  /* Win popup */
+  .modalOverlay { position:fixed; inset:0; background:rgba(0,0,0,.72); display:flex; align-items:center;
+                  justify-content:center; padding:18px; z-index:50; }
+  .modalCard { background:#1f2937; border:2px solid #fbbf24; border-radius:16px; padding:20px; max-width:430px;
+               width:100%; max-height:85vh; overflow-y:auto; box-shadow:0 16px 48px rgba(0,0,0,.65);
+               animation:modalPop .22s ease-out; }
+  @keyframes modalPop { from { transform:scale(.92); opacity:0; } to { transform:scale(1); opacity:1; } }
+  .modalCard h2 { font-size:1.15rem; margin-bottom:8px; color:#fbbf24; }
+  .modalCard p { font-size:.9rem; color:#e5e7eb; line-height:1.55; }
+  .modalCard p b { color:#a3e635; }
+  .modalQuote { margin:14px 0; padding:10px 12px; border-left:3px solid #fbbf24; background:#111827;
+                border-radius:0 8px 8px 0; font-size:.85rem; font-style:italic; color:#fde68a; line-height:1.45; }
+  .modalQuote .qBy { display:block; margin-top:5px; font-style:normal; font-size:.75rem; color:#9ca3af; }
+  .modalNote { font-size:.76rem; color:#9ca3af; margin-top:10px; line-height:1.6; }
 </style>
 </head>
 <body>
@@ -122,12 +168,27 @@
       <div class="joinRow"><input id="joinCode" maxlength="6" placeholder="JOIN CODE"><button class="primary" onclick="joinMatch()">Join</button></div>
     </div>
     <div class="err" id="lobbyErr"></div>
+    <div class="rules">
+      <h3>The rules in brief</h3>
+      <p>Each side has five dice, all rolled fresh every round. On your turn you <b>capture</b> one of your opponent's dice:</p>
+      <ul>
+        <li><b>Power</b> — one of your dice shows at least the target's value.</li>
+        <li><b>Skill</b> — two or three of your dice add up exactly to the target's value.</li>
+      </ul>
+      <p>Special dice bend those rules: <em>Shadow</em> captures dice showing <em>more</em> than itself, <em>Trip</em> rerolls both dice in the attack, <em>Poison</em> scores negative points.</p>
+      <p>When a round ends, captured dice score their full size and your uncaptured dice score half, rounded up. Highest total takes the round — <b>first to three rounds wins the match</b>.</p>
+    </div>
   </div>
 </div>
 
 <div class="panel" id="campaign" style="display:none">
   <h1>📜 Campaign</h1>
   <div class="sub" id="campSub">Beat a philosopher to earn one of their three quotes. Collect all three from each to complete your book of wisdom.</div>
+  <div class="progWrap">
+    <div class="progFill" id="campProgFill"></div>
+    <div class="progText" id="campProgText">0/66</div>
+  </div>
+  <div class="progLegend">Dice: grey = regular · <span style="color:#a78bfa">purple = shadow</span> · <span style="color:#fbbf24">amber = trip</span> · <span style="color:#a3e635">green = poison</span> · <span style="color:#93c5fd">blue = swing</span> (size chosen at setup)</div>
   <div class="cardGrid" id="campGrid"></div>
 </div>
 
@@ -197,6 +258,16 @@
     <button onclick="showProfile()" id="profBtn" style="display:none">My stats</button>
   </div>
   <div class="log" id="log"></div>
+</div>
+
+<div class="modalOverlay" id="winModal" style="display:none">
+  <div class="modalCard">
+    <h2>🎉 Congratulations!</h2>
+    <p id="winBody"></p>
+    <div class="modalQuote" id="winQuote"></div>
+    <div class="modalNote" id="winNote"></div>
+    <button class="primary" style="width:100%;margin-top:16px" onclick="closeWinModal()">Continue</button>
+  </div>
 </div>
 
 <div class="bottomNav" id="bottomNav" style="display:none">
@@ -374,7 +445,7 @@ function doGuest() {
 let CP = null;          // { "Socrates": [0,2], ... } — collected quote indices per character
 let CAMPAIGN_OPP = null; // the philosopher being challenged
 let MATCH_QUOTE = null;  // { name, idx } — the quote shown at match end, matching what was earned
-const CAMP_TOTAL = Object.keys(BUTTON_LIST).length * 3;
+const CAMP_TOTAL = Object.keys(BUTTON_LIST).filter(n => n !== "Custom").length * 3; // 22 characters x 3 quotes = 66
 
 function campaignStorageKey() { return ME ? "dfcamp_" + ME.id : "dfcamp_guest"; }
 
@@ -410,16 +481,41 @@ async function saveCampaign() {
 function campCollected() { return Object.values(CP || {}).reduce((n, a) => n + a.length, 0); }
 
 function updateCampProg() {
-  const el = document.getElementById("campProg");
-  if (el) el.textContent = `(${campCollected()}/${CAMP_TOTAL})`;
+  const n = Math.min(campCollected(), CAMP_TOTAL);   // never read past the total
+  const label = `${n}/${CAMP_TOTAL}`;
+  const legacy = document.getElementById("campProg");   // lobby button
+  if (legacy) legacy.textContent = `(${label})`;
+  const text = document.getElementById("campProgText");  // bar in the campaign
+  if (text) text.textContent = label;
+  const fill = document.getElementById("campProgFill");
+  if (fill) fill.style.width = (CAMP_TOTAL ? Math.min(100, 100 * n / CAMP_TOTAL) : 0) + "%";
 }
 
 function openCampaign() {
-  if (!CP) { loadCampaign().then(renderCampaign); } else renderCampaign();
+  updateCampProg();
+  if (!CP) { loadCampaign().then(() => { updateCampProg(); renderCampaign(); }); } else renderCampaign();
   showPanel("campaign");
 }
 
+// The dice a character brings, as little chips on the campaign card.
+function miniDiceHTML(spec) {
+  const kinds = { s:["shadow","Shadow"], t:["trip","Trip"], p:["poison","Poison"] };
+  return `<div class="campDice">` + spec.dice.map(s => {
+    if (typeof s === "number")
+      return `<span class="miniDie" title="Regular d${s}">d${s}</span>`;
+    const sp = /^([pst])(\d+)$/.exec(s);
+    if (sp) {
+      const [cls, name] = kinds[sp[1]];
+      return `<span class="miniDie ${cls}" title="${name} d${sp[2]}">${sp[1]}${sp[2]}</span>`;
+    }
+    const [min, max] = SWING_RANGES[s] || [1, 30];
+    const what = s === "C" ? "Custom die — pick the type and size at setup" : `Swing die ${s} — pick d${min}–d${max} at setup`;
+    return `<span class="miniDie swing" title="${what}">${s}</span>`;
+  }).join("") + `</div>`;
+}
+
 function renderCampaign() {
+  updateCampProg();
   const grid = document.getElementById("campGrid");
   grid.innerHTML = "";
   for (const [name, spec] of Object.entries(BUTTON_LIST)) {
@@ -432,6 +528,7 @@ function renderCampaign() {
       `<div><h3 class="campName">${name}</h3>` +
       (BIO[name] ? `<div class="campYears">${BIO[name].years}</div><div class="campBio">${BIO[name].bio}</div>` : "") + `</div></div>` +
       `<div class="desc">${spec.desc}</div>` +
+      miniDiceHTML(spec) +
       got.map(i => `<div class="qslot"><b>Quote ${got.indexOf(i) + 1}</b>“${spec.quotes[i]}”</div>`).join("") +
       (got.length < 3 ? `<div class="qslot locked">Beat ${name} to earn quote ${got.length + 1} of 3…</div>` : "") +
       `<button class="primary" onclick="challenge('${name.replace(/'/g, "\\'")}')">⚔️ Challenge</button>`;
@@ -450,7 +547,7 @@ function challenge(name) {
   document.getElementById("ai").checked = true;
   document.getElementById("ai").disabled = true;
   document.getElementById("diff").parentElement.querySelector("label").textContent = "Philosopher's skill";
-  document.getElementById("fightBtn").textContent = `⚔️ Fight ${name}!`;
+  document.getElementById("fightBtn").textContent = `⚔️ Let's roll, ${name}!`;
   updateSwing();
 }
 
@@ -472,30 +569,82 @@ async function awardCampaign() {
   if (!CAMPAIGN_OPP || !G.over) return;
   const won = G.p1.rounds > G.p2.rounds;
   const spec = BUTTON_LIST[CAMPAIGN_OPP];
+  const opp = CAMPAIGN_OPP;
+  if (!ME) bumpGuestCampaign(won); // guests have no match history, so keep the tally here
   if (won) {
     CP = CP || {};
-    const got = CP[CAMPAIGN_OPP] || [];
+    const got = CP[opp] || [];
     const left = spec.quotes.map((_, i) => i).filter(i => !got.includes(i));
+    const total = campCollected();
     if (left.length) {
       const q = left[Math.floor(Math.random() * left.length)];
       got.push(q);
-      CP[CAMPAIGN_OPP] = got;
-      MATCH_QUOTE = { name: CAMPAIGN_OPP, idx: q };
-      saveCampaign();
+      CP[opp] = got;
+      MATCH_QUOTE = { name: opp, idx: q };
+      await saveCampaign();
       const done = got.length === 3;
-      const total = campCollected();
+      const nowTotal = campCollected();
       const msg = done
-        ? `You've earned all three of ${CAMPAIGN_OPP}'s quotes — ${total}/${CAMP_TOTAL} quotes collected!`
-        : `You earned one of ${CAMPAIGN_OPP}'s quotes (${got.length}/3). ${total}/${CAMP_TOTAL} total.`;
-      document.getElementById("status").innerHTML += `<br><em style="color:#a3e635">📖 ${msg}</em>`;
+        ? `You've earned all three of ${opp}'s quotes — ${nowTotal}/${CAMP_TOTAL} quotes collected!`
+        : `You earned one of ${opp}'s quotes (${got.length}/3). ${nowTotal}/${CAMP_TOTAL} total.`;
       log(`📖 ${msg}`);
+      const record = await campaignWinRate();
+      showWinModal({ name: opp, quote: spec.quotes[q], total: nowTotal, complete: nowTotal >= CAMP_TOTAL, record });
+    } else {
+      // Nothing new to win from this philosopher, but it still counts as a win.
+      MATCH_QUOTE = { name: opp, idx: Math.floor(Math.random() * spec.quotes.length) };
+      log(`📖 Victory again — you already hold all three of ${opp}'s quotes (${total}/${CAMP_TOTAL}).`);
+      const record = await campaignWinRate();
+      showWinModal({ name: opp, quote: spec.quotes[MATCH_QUOTE.idx], total, complete: total >= CAMP_TOTAL, record, repeat: true });
     }
   } else {
-    MATCH_QUOTE = { name: CAMPAIGN_OPP, idx: Math.floor(Math.random() * spec.quotes.length) };
+    MATCH_QUOTE = { name: opp, idx: Math.floor(Math.random() * spec.quotes.length) };
     log(`Loss accepted. After contemplating the defeat, ${spec.pron === "she" ? "she" : spec.pron === "he" ? "he" : "they"} offers a consolation thought: “${spec.quotes[MATCH_QUOTE.idx]}”`);
   }
   CAMPAIGN_OPP = null;
 }
+
+// Campaign record: signed-in players are read from their saved matches, guests
+// from a small local tally. Used by the win popup.
+function campaignStats() {
+  try { return JSON.parse(localStorage.getItem("dfcamp_stats") || "{}"); } catch { return {}; }
+}
+function bumpGuestCampaign(won) {
+  const s = campaignStats();
+  if (won) s.wins = (s.wins || 0) + 1; else s.losses = (s.losses || 0) + 1;
+  try { localStorage.setItem("dfcamp_stats", JSON.stringify(s)); } catch {}
+}
+async function campaignWinRate() {
+  const local = () => {
+    const s = campaignStats(), w = s.wins || 0, l = s.losses || 0;
+    return { pct: (w + l) ? Math.round(100 * w / (w + l)) : 0, wins: w, games: w + l };
+  };
+  if (!ME) return local();
+  const { data, error } = await sb.from("matches").select("state").eq("p1", ME.id).eq("status", "finished");
+  if (error) return local();
+  const rows = (data || []).filter(m => m.state && m.state.mode === "campaign");
+  const wins = rows.filter(m => m.state.result === "win").length;
+  return { pct: rows.length ? Math.round(100 * wins / rows.length) : 0, wins, games: rows.length };
+}
+
+function showWinModal(o) {
+  const rec = o.record;
+  document.getElementById("winBody").innerHTML =
+    `Congratulations! You unlocked the wisdom of the world!` +
+    (rec.games ? ` Your win rate was <b>${rec.pct} percent</b>.` : ``);
+  document.getElementById("winQuote").innerHTML =
+    `“${o.quote}”<span class="qBy">— ${o.name}</span>`;
+  const fights = rec.games === 1 ? "campaign fight" : "campaign fights";
+  const record = rec.games
+    ? `Campaign record: ${rec.wins} ${rec.wins === 1 ? "win" : "wins"} from ${rec.games} ${fights} · `
+    : ``;
+  document.getElementById("winNote").innerHTML =
+    `${record}${o.total}/${CAMP_TOTAL} quotes collected.` +
+    (o.complete ? `<br><b style="color:#fbbf24">Your book of wisdom is complete — every quote is yours.</b>` : "") +
+    (o.repeat ? `<br><em>You already hold all of ${o.name}'s quotes — this win unlocked no new one.</em>` : "");
+  document.getElementById("winModal").style.display = "flex";
+}
+function closeWinModal() { document.getElementById("winModal").style.display = "none"; }
 
 function enterLobby() {
   document.getElementById("lobbyHi").textContent =
@@ -591,7 +740,10 @@ function openSetup(mode) {
   document.getElementById("lbl2").textContent = mode === "join" ? "Your character" : "Player 2 character";
   document.getElementById("aiBlock").style.display = mode === "local" ? "block" : "none";
   document.getElementById("fightBtn").textContent =
-    mode === "host" ? "Create match" : mode === "join" ? "Join & fight" : "Fight!";
+    mode === "host" ? "Create match" : mode === "join" ? "Join & fight" : "Let's roll!";
+  // Clear any “Begin fight” button left over from a previous game.
+  document.getElementById("beginRow").style.display = "none";
+  document.getElementById("beginBtn").style.display = "none";
   document.getElementById("setupSub").textContent =
     mode === "local" ? "Captured dice score full size; kept dice score half (rounded up). First to 3 rounds wins."
     : "Pick your character and dice, then confirm to " + (mode === "host" ? "open the match." : "join your opponent.");
@@ -1232,7 +1384,14 @@ function endRound() {
   };
   log(`🧮 ${G.p1.name} breakdown: ${breakdown(G.p1)} = ${s1}`);
   log(`🧮 ${G.p2.name} breakdown: ${breakdown(G.p2)} = ${s2}`);
-  if (G.p1.rounds >= 3 || G.p2.rounds >= 3) { G.over = true; recordGame(); awardCampaign(); render(); return; }
+  if (G.p1.rounds >= 3 || G.p2.rounds >= 3) {
+    G.over = true;
+    render();
+    // Record first, then award: the win rate in the popup is read from the row
+    // this match just wrote, so it has to exist before we count.
+    Promise.resolve(recordGame()).then(() => awardCampaign()).catch(e => console.warn(e));
+    return;
+  }
   render();
   document.getElementById("status").innerHTML =
     `<span class="big">${msg}</span><button class="primary" onclick="nextRound()">Next round</button> All dice will be re-rolled.`;
