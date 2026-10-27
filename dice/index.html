@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Wisdom Dice</title>
+<title>Wise Dice</title>
 <meta name="description" content="A dice battle game inspired by Button Men — play against the computer or a friend online.">
 <meta name="theme-color" content="#111827">
 <!-- Tab icon: two dice. Inline SVG first so the icon shows even if only index.html is deployed. -->
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0Ij4KICA8dGl0bGU+V2lzZG9tIERpY2U8L3RpdGxlPgogIDxyZWN0IHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgcng9IjEzIiBmaWxsPSIjMTExODI3Ii8+CiAgPGcgdHJhbnNmb3JtPSJyb3RhdGUoLTEzIDIyIDQyKSI+CiAgICA8cmVjdCB4PSI2LjI1IiB5PSIyNi4yNSIgd2lkdGg9IjMxLjUiIGhlaWdodD0iMzEuNSIgcng9IjYuNSIgZmlsbD0iI2YzZjRmNiIvPgogICAgPGcgZmlsbD0iIzExMTgyNyI+CiAgICAgIDxjaXJjbGUgY3g9IjEyLjc1IiBjeT0iMzIuNzUiIHI9IjMuNCIvPgogICAgICA8Y2lyY2xlIGN4PSIyNy43NSIgY3k9IjMyLjc1IiByPSIzLjQiLz4KICAgICAgPGNpcmNsZSBjeD0iMjAuMjUiIGN5PSI0MC4yNSIgcj0iMy40Ii8+CiAgICAgIDxjaXJjbGUgY3g9IjEyLjc1IiBjeT0iNDcuNzUiIHI9IjMuNCIvPgogICAgICA8Y2lyY2xlIGN4PSIyNy43NSIgY3k9IjQ3Ljc1IiByPSIzLjQiLz4KICAgIDwvZz4KICA8L2c+CiAgPGcgdHJhbnNmb3JtPSJyb3RhdGUoMTUgNDUgMjEpIj4KICAgIDxyZWN0IHg9IjI5LjI1IiB5PSI1LjI1IiB3aWR0aD0iMzEuNSIgaGVpZ2h0PSIzMS41IiByeD0iNi41IiBmaWxsPSIjZmJiZjI0Ii8+CiAgICA8ZyBmaWxsPSIjMTExODI3Ij4KICAgICAgPGNpcmNsZSBjeD0iMzUuNzUiIGN5PSIxMS43NSIgcj0iMy40Ii8+CiAgICAgIDxjaXJjbGUgY3g9IjQzLjI1IiBjeT0iMTkuMjUiIHI9IjMuNCIvPgogICAgICA8Y2lyY2xlIGN4PSI1MC43NSIgY3k9IjI2Ljc1IiByPSIzLjQiLz4KICAgIDwvZz4KICA8L2c+Cjwvc3ZnPgo=">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0Ij4KICA8dGl0bGU+V2lzZSBEaWNlPC90aXRsZT4KICA8cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHJ4PSIxMyIgZmlsbD0iIzExMTgyNyIvPgogIDxnIHRyYW5zZm9ybT0icm90YXRlKC0xMyAyMiA0MikiPgogICAgPHJlY3QgeD0iNi4yNSIgeT0iMjYuMjUiIHdpZHRoPSIzMS41IiBoZWlnaHQ9IjMxLjUiIHJ4PSI2LjUiIGZpbGw9IiNmM2Y0ZjYiLz4KICAgIDxnIGZpbGw9IiMxMTE4MjciPgogICAgICA8Y2lyY2xlIGN4PSIxMi43NSIgY3k9IjMyLjc1IiByPSIzLjQiLz4KICAgICAgPGNpcmNsZSBjeD0iMjcuNzUiIGN5PSIzMi43NSIgcj0iMy40Ii8+CiAgICAgIDxjaXJjbGUgY3g9IjIwLjI1IiBjeT0iNDAuMjUiIHI9IjMuNCIvPgogICAgICA8Y2lyY2xlIGN4PSIxMi43NSIgY3k9IjQ3Ljc1IiByPSIzLjQiLz4KICAgICAgPGNpcmNsZSBjeD0iMjcuNzUiIGN5PSI0Ny43NSIgcj0iMy40Ii8+CiAgICA8L2c+CiAgPC9nPgogIDxnIHRyYW5zZm9ybT0icm90YXRlKDE1IDQ1IDIxKSI+CiAgICA8cmVjdCB4PSIyOS4yNSIgeT0iNS4yNSIgd2lkdGg9IjMxLjUiIGhlaWdodD0iMzEuNSIgcng9IjYuNSIgZmlsbD0iI2ZiYmYyNCIvPgogICAgPGcgZmlsbD0iIzExMTgyNyI+CiAgICAgIDxjaXJjbGUgY3g9IjM1Ljc1IiBjeT0iMTEuNzUiIHI9IjMuNCIvPgogICAgICA8Y2lyY2xlIGN4PSI0My4yNSIgY3k9IjE5LjI1IiByPSIzLjQiLz4KICAgICAgPGNpcmNsZSBjeD0iNTAuNzUiIGN5PSIyNi43NSIgcj0iMy40Ii8+CiAgICA8L2c+CiAgPC9nPgo8L3N2Zz4K">
 <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
 <link rel="icon" type="image/png" sizes="128x128" href="img/favicon-128.png">
 <link rel="apple-touch-icon" href="img/icon-180.png">
@@ -55,6 +55,7 @@
   .setup { max-width:500px; margin:40px auto; background:#1f2937; padding:24px; border-radius:12px; }
   .setup label { display:block; margin:10px 0 4px; font-size:.9rem; }
   .setup select, .setup input[type=select] { width:100%; padding:8px; border-radius:6px; border:1px solid #4b5563; background:#111827; color:#f3f4f6; }
+.setup input[type=text] { width:100%; padding:8px; border-radius:6px; border:1px solid #4b5563; background:#111827; color:#f3f4f6; }
   .recipe { color:#9ca3af; font-size:.8rem; margin-top:2px; }
   .swingRow { display:block; margin-top:8px; font-size:.85rem; color:#d1d5db; }
   .swingRow select { width:110px; padding:6px; border-radius:6px; border:1px solid #4b5563; background:#111827; color:#f3f4f6; margin-left:6px; }
@@ -147,7 +148,7 @@
 </head>
 <body>
 <div class="panel" id="auth">
-  <h1>🎲 Wisdom Dice</h1>
+  <h1>🎲 Wise Dice</h1>
   <div class="sub">Sign in to play online — or play as a guest against the computer.</div>
   <div class="setup">
     <label>Email</label>
@@ -166,11 +167,12 @@
 </div>
 
 <div class="panel" id="lobby" style="display:none">
-  <h1>🎲 Wisdom Dice</h1>
+  <h1>🎲 Wise Dice</h1>
   <div class="sub" id="lobbyHi"></div>
   <div class="setup">
     <div class="lobbyBtns">
       <button class="primary" onclick="openSetup('local')">🤖 Practice vs the computer</button>
+      <button class="primary" onclick="openSetup('hotseat')">👥 Two players — one screen</button>
       <button class="primary" onclick="openCampaign()">📜 Campaign <span class="recipe" id="campProg"></span></button>
       <button class="primary" onclick="openSetup('host')">🌐 Create an online match</button>
       <div class="joinRow"><input id="joinCode" maxlength="6" placeholder="JOIN CODE"><button class="primary" onclick="joinMatch()">Join</button></div>
@@ -213,9 +215,13 @@
 </div>
 
 <div class="panel" id="setup" style="display:none">
-  <h1>🎲 Wisdom Dice</h1>
+  <h1>🎲 Wise Dice</h1>
   <div class="sub" id="setupSub">Captured dice score full size; kept dice score half (rounded up). First to 3 rounds wins.</div>
   <div class="setup">
+    <div id="nameRow" style="display:none;gap:10px;margin-top:12px">
+      <div style="flex:1"><label>Player 1 name</label><input type="text" id="p1nick" maxlength="14" placeholder="Player 1"></div>
+      <div style="flex:1"><label>Player 2 name</label><input type="text" id="p2nick" maxlength="14" placeholder="Player 2"></div>
+    </div>
     <label style="margin-top:12px" id="lbl1">Player 1 character</label>
     <select id="btn1"></select><div class="recipe" id="rec1"></div>
     <div id="sw1"></div>
@@ -791,6 +797,7 @@ function openSetup(mode) {
   document.getElementById("p2block").style.display = mode === "host" ? "none" : "block";
   document.getElementById("lbl2").textContent = mode === "join" ? "Your character" : "Player 2 character";
   document.getElementById("aiBlock").style.display = mode === "local" ? "block" : "none";
+  document.getElementById("nameRow").style.display = mode === "hotseat" ? "flex" : "none";
   document.getElementById("fightBtn").textContent =
     mode === "host" ? "Create match" : mode === "join" ? "Join & roll" : "Let's roll!";
   // Clear any “Begin roll” button left over from a previous game, and restore
@@ -800,6 +807,7 @@ function openSetup(mode) {
   document.getElementById("beginBtn").style.display = "none";
   document.getElementById("setupSub").textContent =
     mode === "local" ? "Captured dice score full size; kept dice score half (rounded up). First to 3 rounds wins."
+    : mode === "hotseat" ? "Two players, one screen — take turns on this device. Captured dice score full size, kept dice half. First to 3 rounds wins."
     : "Pick your character and dice, then confirm to " + (mode === "host" ? "open the match." : "join your opponent.");
   showPanel("setup");
 }
@@ -986,7 +994,6 @@ function enterOnlineGame(gameState) {
 }
 
 function isOnline() { return MODE === "online"; }
-function isAI() { return MODE === "local" && document.getElementById("ai").checked; }
 function mySide() { return isOnline() && MATCH && ME && G ? (MATCH.p1 === ME.id ? G.p1 : G.p2) : null; }
 
 // Push the current G to the server so the other client can see it.
@@ -1033,6 +1040,8 @@ async function recordOnlineResult() {
 async function recordGame() {
   if (!ME || !G.over) return;
   if (isOnline()) return recordOnlineResult();
+  // Hotseat is two people on someone else's account — it would skew their stats.
+  if (MODE === "hotseat" || (G && G.hotseat)) return;
   // Local (vs computer) match — bump the profile stats and record a history row.
   const iWon = G.p1.rounds > G.p2.rounds;
   const { data: prof } = await sb.from("profiles").select("games,wins").eq("id", ME.id).maybeSingle();
@@ -1110,7 +1119,12 @@ function updateSwing() {
     const prev = {};
     for (const id of Object.keys(pickerVals)) if (id.startsWith(boxId + "_")) prev[id] = pickerVals[id];
     box.innerHTML = "";
-    const spec = BUTTON_LIST[document.getElementById(selId).value];
+    // "Random" has no dice of its own — the character is only settled when the
+    // roll starts, and updateSwing runs again then. Leave the pickers empty here.
+    const chosen = document.getElementById(selId).value;
+    if (chosen === "random") continue;
+    const spec = BUTTON_LIST[chosen];
+    if (!spec) continue; // nothing picked yet — leave the pickers empty
     let swIdx = 0;
     spec.dice.forEach((s, i) => {
       if (typeof s !== "string") return;
@@ -1211,10 +1225,19 @@ function beginFight(n1, n2) {
   document.getElementById("beginRow").style.display = "none";
   document.getElementById("beginBtn").style.display = "none";
   document.getElementById("fightBtn").style.display = "";
+  // Local: the computer may play side two (or a human may take it, same screen).
+  const vsComputer = MODE === "local" && document.getElementById("ai").checked;
+  const nick = (id, fallback) => {
+    const el = document.getElementById(id);
+    return (el && el.value.trim()) || fallback;
+  };
+  const name1 = MODE === "hotseat" ? nick("p1nick", "Player 1") : (ME ? ME.username : "Player 1");
+  const name2 = vsComputer ? "Computer" : MODE === "hotseat" ? nick("p2nick", "Player 2") : "Player 2";
   G = {
-    p1: makePlayer(ME ? ME.username : "Player 1", n1, readSwingSizes("sw1"), readCustomTypes("sw1")),
-    p2: makePlayer(MODE === "local" ? "Computer" : "Player 2", n2, readSwingSizes("sw2"), readCustomTypes("sw2")),
-    turn:null, sel:[], log:[], round:1, over:false, roundOver:false, aiLevel:document.getElementById("diff").value
+    p1: makePlayer(name1, n1, readSwingSizes("sw1"), readCustomTypes("sw1")),
+    p2: makePlayer(name2, n2, readSwingSizes("sw2"), readCustomTypes("sw2")),
+    turn:null, sel:[], log:[], round:1, over:false, roundOver:false, aiLevel:document.getElementById("diff").value,
+    ai: vsComputer, hotseat: MODE === "hotseat"
   };
   document.getElementById("setup").style.display = "none";
   document.getElementById("game").style.display = "block";
@@ -1234,7 +1257,7 @@ function log(msg) {
 }
 
 function other(p) { return p === G.p1 ? G.p2 : G.p1; }
-function isAI() { return G.p2.name === "Computer"; }
+function isAI() { return !!(G && G.ai); }
 
 function startRound() {
   // All dice are re-rolled at the start of each round; captured dice return to play.
