@@ -1,4 +1,4 @@
-// Wisdom Dice — Supabase connection settings.
+// Wise Dice — Supabase connection settings.
 // These two values are safe to be public: security is enforced by the
 // database's row-level security policies, not by keeping this file secret.
 const SUPABASE_URL = "https://idmzbxfsjelxbtlpztoq.supabase.co";
