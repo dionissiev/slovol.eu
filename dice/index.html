@@ -16,7 +16,7 @@
 <style>
   :root { --p1:#3b82f6; --p2:#ef4444; --bg:#111827; }
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:system-ui,sans-serif; background:var(--bg); color:#f3f4f6; min-height:100vh; padding:16px; }
+  body { font-family:system-ui,sans-serif; background:var(--bg); color:#f3f4f6; min-height:100vh; padding:16px 16px 80px; }
   h1 { text-align:center; margin-bottom:4px; }
   .sub { text-align:center; color:#9ca3af; margin-bottom:16px; font-size:.9rem; }
   .panel { max-width:900px; margin:0 auto; }
@@ -66,8 +66,16 @@
   table.hist { width:100%; border-collapse:collapse; font-size:.85rem; margin-top:10px; }
   table.hist th, table.hist td { padding:6px 8px; border-bottom:1px solid #374151; text-align:left; }
   table.hist th { color:#9ca3af; font-weight:600; }
-  .stats { display:flex; gap:16px; margin-top:10px; font-size:.9rem; }
+  .stats { display:flex; gap:18px; flex-wrap:wrap; margin-top:12px; font-size:.8rem; color:#9ca3af; }
   .stats b { display:block; font-size:1.3rem; color:#a3e635; }
+  /* Stats tabs */
+  .tabs { display:flex; gap:5px; margin-top:14px; }
+  .tabs button { flex:1 1 0; min-width:0; padding:8px 3px; font-size:.72rem; background:#111827; color:#9ca3af;
+                 border:1px solid #374151; border-radius:8px; white-space:nowrap; }
+  .tabs button:hover { background:#1f2937; }
+  .tabs button.active { background:#fbbf24; color:#111827; font-weight:700; border-color:#fbbf24; }
+  .histWrap { overflow-x:auto; }
+  table.hist td.nowrap { white-space:nowrap; }
   .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:.85rem; color:#9ca3af; }
   .topbar button { padding:4px 10px; font-size:.8rem; }
   /* Lobby */
@@ -95,7 +103,7 @@
   /* Bottom navigation bar */
   .bottomNav { position:fixed; left:0; right:0; bottom:0; display:flex; justify-content:center; gap:10px;
                padding:10px; background:rgba(17,24,39,.92); border-top:1px solid #374151; z-index:10; }
-  .bottomNav button { min-width:120px; }
+  .bottomNav button { min-width:0; padding:10px 12px; font-size:.85rem; }
   /* Basic rules on the lobby */
   .rules { margin-top:16px; background:#1f2937; border-radius:12px; padding:14px 16px; font-size:.8rem; color:#d1d5db; line-height:1.55; }
   .rules h3 { font-size:.9rem; color:#f3f4f6; margin-bottom:6px; }
@@ -163,8 +171,8 @@
   <div class="setup">
     <div class="lobbyBtns">
       <button class="primary" onclick="openSetup('local')">🤖 Practice vs the computer</button>
-      <button class="primary" onclick="openSetup('host')">🌐 Create an online match</button>
       <button class="primary" onclick="openCampaign()">📜 Campaign <span class="recipe" id="campProg"></span></button>
+      <button class="primary" onclick="openSetup('host')">🌐 Create an online match</button>
       <div class="joinRow"><input id="joinCode" maxlength="6" placeholder="JOIN CODE"><button class="primary" onclick="joinMatch()">Join</button></div>
     </div>
     <div class="err" id="lobbyErr"></div>
@@ -194,14 +202,14 @@
 
 <div class="panel" id="profile" style="display:none">
   <h1 id="profTitle"></h1>
+  <div class="tabs" id="profTabs"></div>
   <div class="stats" id="profStats"></div>
-  <table class="hist" id="profTable"></table>
+  <div class="histWrap"><table class="hist" id="profTable"></table></div>
   <div style="margin:14px 0 4px;display:flex;gap:8px;align-items:center">
     <label style="font-size:.9rem">Username:</label>
     <input id="profUsername" maxlength="20" style="flex:1;background:#0b1220;border:1px solid #334155;border-radius:8px;color:#e2e8f0;padding:6px 10px">
     <button onclick="renameMe()">Save</button>
   </div>
-  <div class="controls"><button onclick="renameMe()">Save username</button></div>
 </div>
 
 <div class="panel" id="setup" style="display:none">
@@ -255,7 +263,6 @@
   <div class="controls">
     <button id="passBtn" onclick="doPass()">Pass</button>
     <button onclick="newGame()">New game</button>
-    <button onclick="showProfile()" id="profBtn" style="display:none">My stats</button>
   </div>
   <div class="log" id="log"></div>
 </div>
@@ -272,6 +279,7 @@
 
 <div class="bottomNav" id="bottomNav" style="display:none">
   <button id="navBack" onclick="navBack()">← Back</button>
+  <button id="navStats" onclick="showProfile()" style="display:none">📊 My stats</button>
   <button onclick="doLogout()">Log out</button>
 </div>
 
@@ -364,11 +372,14 @@ const NAV_BACK = { campaign: "lobby", setup: "lobby", game: "lobby", profile: nu
 function updateNav(id) {
   const nav = document.getElementById("bottomNav");
   const back = document.getElementById("navBack");
+  const stats = document.getElementById("navStats");
   const show = id !== "auth"; // every signed-in page gets the bar
   nav.style.display = show ? "flex" : "none";
   // On the lobby there's nowhere to go back to — hide just the Back button.
   back.style.display = id === "lobby" ? "none" : "inline-block";
   back.textContent = id === "game" ? "← Leave match" : "← Back";
+  // Stats are for signed-in players only, and the button is pointless on the page itself.
+  stats.style.display = ME && id !== "profile" ? "inline-block" : "none";
 }
 function navBack() {
   const id = ["lobby", "setup", "game", "profile", "campaign", "auth"]
@@ -417,8 +428,6 @@ async function afterSignIn(session) {
   if (!prof && username) await sb.from("profiles").insert({ id: u.id, username }).select().single()
     .then(r => { if (r.error && r.error.code === "23505") username = username + "-" + u.id.slice(0, 4); });
   ME = { id: u.id, email: u.email, username: prof?.username || username };
-  document.getElementById("profBtn").textContent = `My stats (${ME.username})`;
-  document.getElementById("profBtn").style.display = "inline-block";
   // Carry over any guest progress made on this device into the account.
   let guestCP = {};
   try { guestCP = JSON.parse(localStorage.getItem(campaignStorageKey()) || "{}"); } catch {}
@@ -675,10 +684,17 @@ async function renameMe() {
   if (error) return alert("Could not rename: " + error.message);
   ME.username = u;
   await sb.auth.updateUser({ data: { username: u } });
-  document.getElementById("profTitle").textContent = `📊 ${u}`;
-  document.getElementById("profBtn").textContent = `My stats (${u})`;
-  enterLobby();
+  await showProfile(); // stay on the stats page, now with the new name
 }
+
+let PROF_ROWS = [];      // match history for the signed-in player
+let PROF_TAB = "all";    // multiplayer | campaign | practice | all
+const PROF_TABS = [
+  ["multiplayer", "Multiplayer"],
+  ["campaign", "Campaign"],
+  ["practice", "Practice"],
+  ["all", "All games"]
+];
 
 async function showProfile() {
   if (!ME) return;
@@ -691,42 +707,78 @@ async function showProfile() {
     .or(`p1.eq.${ME.id},p2.eq.${ME.id}`).order("created_at", { ascending: false }).limit(200);
   const { data: names } = await sb.from("profiles").select("id,username");
   const nm = id => (names?.find(n => n.id === id) || {}).username || "?";
-  const rows = (ms || []).map(m => {
-    const oppId = m.p1 === ME.id ? m.p2 : m.p1;
-    const oppName = (!oppId && m.state && m.state.opponent) ? m.state.opponent
-      : oppId ? nm(oppId) : "Computer";
-    const mode = (m.state && m.state.mode) || (m.p2 ? "multiplayer" : "practice");
-    // Prefer the stored result; only fall back to winner inference for old rows.
-    const res = m.status !== "finished" ? m.status
-      : m.state && m.state.result ? m.state.result
-      : m.winner === ME.id ? "win" : m.winner ? "loss" : "draw";
-    return { when: m.created_at.slice(0, 16).replace("T", " "), oppName, res, mode };
+  PROF_ROWS = (ms || []).map(m => {
+    const st = m.state || {};
+    const g = st.game;                       // online matches keep the whole board
+    const mineIsP1 = m.p1 === ME.id;
+    const oppId = mineIsP1 ? m.p2 : m.p1;
+    const mode = st.mode || (m.p2 ? "multiplayer" : "practice");
+    // Opponent: a username online, the philosopher in the campaign, the
+    // computer in practice (drop the difficulty suffix from older rows).
+    const oppName = mode === "multiplayer" ? (oppId ? nm(oppId) : (st.opponent || "?"))
+      : (st.opponent || "Computer").replace(/\s*\([^)]*\)\s*$/, "");
+    // My character: online, it's whichever side is mine on the saved board.
+    const myChar = mode === "multiplayer" && g
+      ? (mineIsP1 ? g.p1?.btnName : g.p2?.btnName) || null
+      : st.myChar || (g ? g.p1?.btnName : null) || null;
+    // Rounds won by each side (first to 3), straight from the board when present.
+    let score = Array.isArray(st.score) ? st.score : null;
+    if (!score && g) score = [g.p1?.rounds ?? 0, g.p2?.rounds ?? 0];
+    let myScore = null, oppScore = null;
+    if (score && score.length === 2) {
+      myScore = mineIsP1 ? score[0] : score[1];
+      oppScore = mineIsP1 ? score[1] : score[0];
+    }
+    const finished = m.status === "finished" || !!(g && g.over);
+    let res;
+    if (!finished) res = "in progress";
+    else if (myScore !== null) res = myScore > oppScore ? "win" : myScore < oppScore ? "loss" : "draw";
+    // Old rows: the stored result is from p1's point of view, so flip it for p2.
+    else if (st.result) res = mineIsP1 ? st.result : ({ win: "loss", loss: "win" }[st.result] || "draw");
+    else res = m.winner === ME.id ? "win" : m.winner ? "loss" : "draw";
+    const dt = new Date(m.created_at);
+    const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const hhmm = `${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}`;
+    const when = `${dt.getDate()} ${MON[dt.getMonth()]}` +
+      (dt.getFullYear() === new Date().getFullYear() ? "" : ` ${dt.getFullYear()}`) + `, ${hhmm}`;
+    return {
+      when, mode, oppName, myChar, res,
+      score: myScore !== null ? `${myScore}:${oppScore}` : ""
+    };
   });
-  // Per-mode stats over finished games.
-  const MODES = ["campaign", "practice", "multiplayer"];
-  const stat = md => {
-    const fin = rows.filter(r => r.mode === md && (r.res === "win" || r.res === "loss" || r.res === "draw"));
-    const wins = fin.filter(r => r.res === "win").length;
-    return { g: fin.length, w: wins,
-      pct: fin.length ? Math.round(100 * wins / fin.length) : 0 };
-  };
-  const all = { g: 0, w: 0 };
-  const statHtml = MODES.map(md => {
-    const st = stat(md); all.g += st.g; all.w += st.w;
-    return `<div><b>${st.g}</b>${md} games</div><div><b>${st.w}</b>${md} wins</div>` +
-      `<div><b>${st.pct}%</b>${md} win rate</div>`;
-  }).join("") +
-    `<div style="border-top:1px solid #374151;padding-top:6px"><b>${all.g}</b>all games</div>` +
-    `<div style="border-top:1px solid #374151;padding-top:6px"><b>${all.w}</b>all wins</div>` +
-    `<div style="border-top:1px solid #374151;padding-top:6px"><b>${all.g ? Math.round(100 * all.w / all.g) : 0}%</b>all win rate</div>`;
-  document.getElementById("profStats").innerHTML = statHtml;
-  document.getElementById("profTable").innerHTML =
-    `<tr><th>When</th><th>Opponent</th><th>Result</th></tr>` +
-    (rows.length ? rows.map(r =>
-      `<tr><td>${r.when}</td><td>${r.oppName}</td>` +
-      `<td style="color:${r.res === "win" ? "#a3e635" : r.res === "loss" ? "#f87171" : "#9ca3af"}">${r.res}</td></tr>`).join("")
-    : `<tr><td colspan="3" style="color:#9ca3af">No matches yet.</td></tr>`);
+  renderProfile();
   showPanel("profile");
+}
+
+function setProfTab(tab) { PROF_TAB = tab; renderProfile(); }
+
+function renderProfile() {
+  document.getElementById("profTabs").innerHTML = PROF_TABS.map(([k, label]) =>
+    `<button class="${PROF_TAB === k ? "active" : ""}" onclick="setProfTab('${k}')">${label}</button>`).join("");
+
+  const rows = PROF_ROWS.filter(r => PROF_TAB === "all" || r.mode === PROF_TAB);
+  const fin = rows.filter(r => ["win", "loss", "draw"].includes(r.res));
+  const wins = fin.filter(r => r.res === "win").length;
+  const losses = fin.filter(r => r.res === "loss").length;
+  const draws = fin.filter(r => r.res === "draw").length;
+  const pct = fin.length ? Math.round(100 * wins / fin.length) : 0;
+  document.getElementById("profStats").innerHTML =
+    `<div><b>${fin.length}</b>games</div><div><b>${wins}</b>wins</div><div><b>${losses}</b>losses</div>` +
+    (draws ? `<div><b>${draws}</b>draws</div>` : "") +
+    `<div><b>${pct}%</b>win rate</div>`;
+
+  const showMode = PROF_TAB === "all";
+  const cols = showMode ? 5 : 4;
+  const modeLabel = { multiplayer: "Online", campaign: "Campaign", practice: "Practice" };
+  document.getElementById("profTable").innerHTML =
+    `<tr><th>When</th>${showMode ? "<th>Mode</th>" : ""}<th>Your character</th><th>Opponent</th><th>Result</th></tr>` +
+    (rows.length ? rows.map(r =>
+      `<tr><td class="nowrap">${r.when}</td>` +
+      (showMode ? `<td>${modeLabel[r.mode] || r.mode}</td>` : "") +
+      `<td>${r.myChar || "—"}</td><td>${r.oppName}</td>` +
+      `<td class="nowrap" style="color:${r.res === "win" ? "#a3e635" : r.res === "loss" ? "#f87171" : "#9ca3af"}">` +
+      `${r.res}${r.score ? ` (${r.score})` : ""}</td></tr>`).join("")
+    : `<tr><td colspan="${cols}" style="color:#9ca3af">No matches yet.</td></tr>`);
 }
 
 function closeProfile() { showPanel(G && G.over ? "game" : "lobby"); }
@@ -850,7 +902,13 @@ async function pollMatch() {
 
 function onMatchUpdate() {
   if (!MATCH) return;
-  if (MATCH.state?.game) applyRemoteState(MATCH.state);
+  if (MATCH.state?.game) {
+    applyRemoteState(MATCH.state);
+    // The opponent landed the winning round on their client. Count the match
+    // here too, so both players' history and stats see it.
+    if (MATCH.status === "finished" && G && G.over && RECORDED !== MATCH.id)
+      Promise.resolve(recordGame()).catch(e => console.warn(e));
+  }
   else if (MATCH.status === "waiting" && !G) renderWaiting();
 }
 
@@ -945,13 +1003,27 @@ async function pushState() {
   MATCH = data;
 }
 
-// Called whenever the online game should end: bump the signed-in player's stats.
+// Called whenever the online game should end: bump the signed-in player's stats
+// and close the match row so the result shows up in both players' history.
+let RECORDED = null; // id of the match this client has already counted
 async function recordOnlineResult() {
   if (!ME || !MATCH) return;
-  const won = G.over && G.p1.rounds !== G.p2.rounds &&
-    (MATCH.p1 === ME.id ? G.p1.rounds > G.p2.rounds : G.p2.rounds > G.p1.rounds);
+  if (RECORDED === MATCH.id) return;
+  RECORDED = MATCH.id;
+  const scores = [G.p1.rounds, G.p2.rounds];
+  const iAmP1 = MATCH.p1 === ME.id;
+  const won = scores[0] !== scores[1] && (iAmP1 ? scores[0] > scores[1] : scores[1] > scores[0]);
   const { data: prof } = await sb.from("profiles").select("games,wins").eq("id", ME.id).maybeSingle();
   if (prof) await sb.from("profiles").update({ games: (prof.games || 0) + 1, wins: (prof.wins || 0) + (won ? 1 : 0) }).eq("id", ME.id);
+  // Result is stored from player 1's side; the stats page flips it for player 2.
+  const p1Res = scores[0] > scores[1] ? "win" : scores[0] < scores[1] ? "loss" : "draw";
+  const st = { ...(MATCH.state || {}), result: p1Res, score: scores, finishedAt: new Date().toISOString() };
+  const { error } = await sb.from("matches").update({
+    status: "finished", state: st, rev: (MATCH.rev || 0) + 1,
+    winner: scores[0] > scores[1] ? MATCH.p1 : scores[1] > scores[0] ? MATCH.p2 : null
+  }).eq("id", MATCH.id);
+  if (error) console.warn("closing the match failed:", error.message);
+  else { MATCH.status = "finished"; MATCH.state = st; }
 }
 
 async function recordGame() {
@@ -965,11 +1037,15 @@ async function recordGame() {
     // Campaign fights are also "local" matches — tag the mode so the stats
     // page can split campaign / practice / multiplayer.
     const mode = CAMPAIGN_OPP ? "campaign" : "practice";
-    const oppName = `Computer — ${G.p2.btnName || "?"} (${G.aiLevel || "normal"})`;
+    const oppName = CAMPAIGN_OPP || `Computer — ${G.p2.btnName || "?"}`;
     // Store the result explicitly: winner=null alone can't tell a loss from a draw.
     const { error: mErr } = await sb.from("matches").insert({
       p1: ME.id, p2: null, status: "finished",
-      state: { opponent: oppName, vsComputer: true, mode, result: iWon ? "win" : "loss" },
+      state: {
+        opponent: oppName, opponentChar: G.p2.btnName || null, myChar: G.p1.btnName || null,
+        vsComputer: true, mode, level: G.aiLevel || "normal",
+        result: iWon ? "win" : "loss", score: [G.p1.rounds, G.p2.rounds]
+      },
       winner: iWon ? ME.id : null,
       log: []
     });
