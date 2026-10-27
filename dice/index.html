@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dice Fight</title>
+<title>Wisdom Dice</title>
 <meta name="description" content="A dice battle game inspired by Button Men — play against the computer or a friend online.">
 <meta name="theme-color" content="#111827">
 <!-- Tab icon: two dice. Inline SVG first so the icon shows even if only index.html is deployed. -->
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0Ij4KICA8dGl0bGU+RGljZSBGaWdodDwvdGl0bGU+CiAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTMiIGZpbGw9IiMxMTE4MjciLz4KICA8ZyB0cmFuc2Zvcm09InJvdGF0ZSgtMTMgMjIgNDIpIj4KICAgIDxyZWN0IHg9IjYuMjUiIHk9IjI2LjI1IiB3aWR0aD0iMzEuNSIgaGVpZ2h0PSIzMS41IiByeD0iNi41IiBmaWxsPSIjZjNmNGY2Ii8+CiAgICA8ZyBmaWxsPSIjMTExODI3Ij4KICAgICAgPGNpcmNsZSBjeD0iMTIuNzUiIGN5PSIzMi43NSIgcj0iMy40Ii8+CiAgICAgIDxjaXJjbGUgY3g9IjI3Ljc1IiBjeT0iMzIuNzUiIHI9IjMuNCIvPgogICAgICA8Y2lyY2xlIGN4PSIyMC4yNSIgY3k9IjQwLjI1IiByPSIzLjQiLz4KICAgICAgPGNpcmNsZSBjeD0iMTIuNzUiIGN5PSI0Ny43NSIgcj0iMy40Ii8+CiAgICAgIDxjaXJjbGUgY3g9IjI3Ljc1IiBjeT0iNDcuNzUiIHI9IjMuNCIvPgogICAgPC9nPgogIDwvZz4KICA8ZyB0cmFuc2Zvcm09InJvdGF0ZSgxNSA0NSAyMSkiPgogICAgPHJlY3QgeD0iMjkuMjUiIHk9IjUuMjUiIHdpZHRoPSIzMS41IiBoZWlnaHQ9IjMxLjUiIHJ4PSI2LjUiIGZpbGw9IiNmYmJmMjQiLz4KICAgIDxnIGZpbGw9IiMxMTE4MjciPgogICAgICA8Y2lyY2xlIGN4PSIzNS43NSIgY3k9IjExLjc1IiByPSIzLjQiLz4KICAgICAgPGNpcmNsZSBjeD0iNDMuMjUiIGN5PSIxOS4yNSIgcj0iMy40Ii8+CiAgICAgIDxjaXJjbGUgY3g9IjUwLjc1IiBjeT0iMjYuNzUiIHI9IjMuNCIvPgogICAgPC9nPgogIDwvZz4KPC9zdmc+Cg==">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0Ij4KICA8dGl0bGU+V2lzZG9tIERpY2U8L3RpdGxlPgogIDxyZWN0IHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgcng9IjEzIiBmaWxsPSIjMTExODI3Ii8+CiAgPGcgdHJhbnNmb3JtPSJyb3RhdGUoLTEzIDIyIDQyKSI+CiAgICA8cmVjdCB4PSI2LjI1IiB5PSIyNi4yNSIgd2lkdGg9IjMxLjUiIGhlaWdodD0iMzEuNSIgcng9IjYuNSIgZmlsbD0iI2YzZjRmNiIvPgogICAgPGcgZmlsbD0iIzExMTgyNyI+CiAgICAgIDxjaXJjbGUgY3g9IjEyLjc1IiBjeT0iMzIuNzUiIHI9IjMuNCIvPgogICAgICA8Y2lyY2xlIGN4PSIyNy43NSIgY3k9IjMyLjc1IiByPSIzLjQiLz4KICAgICAgPGNpcmNsZSBjeD0iMjAuMjUiIGN5PSI0MC4yNSIgcj0iMy40Ii8+CiAgICAgIDxjaXJjbGUgY3g9IjEyLjc1IiBjeT0iNDcuNzUiIHI9IjMuNCIvPgogICAgICA8Y2lyY2xlIGN4PSIyNy43NSIgY3k9IjQ3Ljc1IiByPSIzLjQiLz4KICAgIDwvZz4KICA8L2c+CiAgPGcgdHJhbnNmb3JtPSJyb3RhdGUoMTUgNDUgMjEpIj4KICAgIDxyZWN0IHg9IjI5LjI1IiB5PSI1LjI1IiB3aWR0aD0iMzEuNSIgaGVpZ2h0PSIzMS41IiByeD0iNi41IiBmaWxsPSIjZmJiZjI0Ii8+CiAgICA8ZyBmaWxsPSIjMTExODI3Ij4KICAgICAgPGNpcmNsZSBjeD0iMzUuNzUiIGN5PSIxMS43NSIgcj0iMy40Ii8+CiAgICAgIDxjaXJjbGUgY3g9IjQzLjI1IiBjeT0iMTkuMjUiIHI9IjMuNCIvPgogICAgICA8Y2lyY2xlIGN4PSI1MC43NSIgY3k9IjI2Ljc1IiByPSIzLjQiLz4KICAgIDwvZz4KICA8L2c+Cjwvc3ZnPgo=">
 <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
 <link rel="icon" type="image/png" sizes="128x128" href="img/favicon-128.png">
 <link rel="apple-touch-icon" href="img/icon-180.png">
@@ -147,7 +147,7 @@
 </head>
 <body>
 <div class="panel" id="auth">
-  <h1>⚔️ Dice Fight</h1>
+  <h1>🎲 Wisdom Dice</h1>
   <div class="sub">Sign in to play online — or play as a guest against the computer.</div>
   <div class="setup">
     <label>Email</label>
@@ -166,7 +166,7 @@
 </div>
 
 <div class="panel" id="lobby" style="display:none">
-  <h1>⚔️ Dice Fight</h1>
+  <h1>🎲 Wisdom Dice</h1>
   <div class="sub" id="lobbyHi"></div>
   <div class="setup">
     <div class="lobbyBtns">
@@ -213,7 +213,7 @@
 </div>
 
 <div class="panel" id="setup" style="display:none">
-  <h1>⚔️ Dice Fight</h1>
+  <h1>🎲 Wisdom Dice</h1>
   <div class="sub" id="setupSub">Captured dice score full size; kept dice score half (rounded up). First to 3 rounds wins.</div>
   <div class="setup">
     <label style="margin-top:12px" id="lbl1">Player 1 character</label>
@@ -239,11 +239,11 @@
       </select>
     </div>
     <div style="margin-top:16px;display:flex;gap:8px">
-      <button class="primary" style="flex:1" id="fightBtn" onclick="startGame()">Fight!</button>
-      <button class="primary" style="flex:1;display:none" id="beginBtn" onclick="beginFight(resolved1, resolved2)">Begin fight</button>
+      <button class="primary" style="flex:1" id="fightBtn" onclick="startGame()">Roll!</button>
+      <button class="primary" style="flex:1;display:none" id="beginBtn" onclick="beginFight(resolved1, resolved2)">Begin roll</button>
     </div>
     <div id="beginRow" style="display:none;margin-top:10px;color:#a3e635;font-size:.85rem">
-      Set your swing / custom dice above, then press “Begin fight”.
+      Set your swing / custom dice above, then press “Begin roll”.
     </div>
   </div>
 </div>
@@ -279,7 +279,7 @@
 
 <div class="bottomNav" id="bottomNav" style="display:none">
   <button id="navBack" onclick="navBack()">← Back</button>
-  <button id="navStats" onclick="showProfile()" style="display:none">📊 My stats</button>
+  <button id="navStats" onclick="showProfile()" style="display:none">📊 Stats</button>
   <button onclick="doLogout()">Log out</button>
 </div>
 
@@ -423,7 +423,7 @@ async function afterSignIn(session) {
   const u = session.user;
   let username = u.user_metadata?.username || "player";
   // Only create/patch the profile when it is MISSING — never overwrite a
-  // username the player already has (e.g. one set via "Save" on My stats).
+  // username the player already has (e.g. one set via "Save" on the Stats page).
   const { data: prof } = await sb.from("profiles").select("username").eq("id", u.id).maybeSingle();
   if (!prof && username) await sb.from("profiles").insert({ id: u.id, username }).select().single()
     .then(r => { if (r.error && r.error.code === "23505") username = username + "-" + u.id.slice(0, 4); });
@@ -556,7 +556,7 @@ function challenge(name) {
   document.getElementById("ai").checked = true;
   document.getElementById("ai").disabled = true;
   document.getElementById("diff").parentElement.querySelector("label").textContent = "Philosopher's skill";
-  document.getElementById("fightBtn").textContent = `⚔️ Let's roll, ${name}!`;
+  document.getElementById("fightBtn").textContent = `🎲 Let's roll, ${name}!`;
   updateSwing();
 }
 
@@ -643,7 +643,7 @@ function showWinModal(o) {
     (rec.games ? ` Your win rate was <b>${rec.pct} percent</b>.` : ``);
   document.getElementById("winQuote").innerHTML =
     `“${o.quote}”<span class="qBy">— ${o.name}</span>`;
-  const fights = rec.games === 1 ? "campaign fight" : "campaign fights";
+  const fights = rec.games === 1 ? "campaign match" : "campaign matches";
   const record = rec.games
     ? `Campaign record: ${rec.wins} ${rec.wins === 1 ? "win" : "wins"} from ${rec.games} ${fights} · `
     : ``;
@@ -792,8 +792,10 @@ function openSetup(mode) {
   document.getElementById("lbl2").textContent = mode === "join" ? "Your character" : "Player 2 character";
   document.getElementById("aiBlock").style.display = mode === "local" ? "block" : "none";
   document.getElementById("fightBtn").textContent =
-    mode === "host" ? "Create match" : mode === "join" ? "Join & fight" : "Let's roll!";
-  // Clear any “Begin fight” button left over from a previous game.
+    mode === "host" ? "Create match" : mode === "join" ? "Join & roll" : "Let's roll!";
+  // Clear any “Begin roll” button left over from a previous game, and restore
+  // the main button hidden while the Begin roll button was showing.
+  document.getElementById("fightBtn").style.display = "";
   document.getElementById("beginRow").style.display = "none";
   document.getElementById("beginBtn").style.display = "none";
   document.getElementById("setupSub").textContent =
@@ -836,6 +838,8 @@ function renderWaiting() {
     `Share this code: <b style="font-size:1.4rem;letter-spacing:4px">${MATCH.join_code}</b><br>` +
     `Your friend opens the same site, presses “Join” and types the code.`;
   document.getElementById("log").innerHTML = "";
+  // A finished match hides "Pass"; bring it back for the new one.
+  document.getElementById("passBtn").style.display = "";
   for (const i of [1, 2]) document.getElementById(`p${i}dice`).innerHTML = "";
 }
 
@@ -1195,7 +1199,9 @@ function startGame() {
     document.getElementById("beginRow").style.display = "block";
     const b = document.getElementById("beginBtn");
     b.style.display = "inline-block";
-    b.textContent = `Begin fight (${n1} vs ${n2})`;
+    b.textContent = `Begin roll (${n1} vs ${n2})`;
+    // Hide the main button so only one choice is on screen.
+    document.getElementById("fightBtn").style.display = "none";
     return; // wait for the Begin button
   }
   beginFight(n1, n2);
@@ -1203,6 +1209,8 @@ function startGame() {
 
 function beginFight(n1, n2) {
   document.getElementById("beginRow").style.display = "none";
+  document.getElementById("beginBtn").style.display = "none";
+  document.getElementById("fightBtn").style.display = "";
   G = {
     p1: makePlayer(ME ? ME.username : "Player 1", n1, readSwingSizes("sw1"), readCustomTypes("sw1")),
     p2: makePlayer(MODE === "local" ? "Computer" : "Player 2", n2, readSwingSizes("sw2"), readCustomTypes("sw2")),
@@ -1294,6 +1302,8 @@ function render() {
   }
   const st = document.getElementById("status");
   const passBtn = document.getElementById("passBtn");
+  // No "Pass" once the match has ended — only "New game" belongs there.
+  passBtn.style.display = G && G.over ? "none" : "";
   passBtn.disabled = !G || G.over || G.roundOver || (G.turn===G.p2 && isAI());
   // Highlight Pass when the current (human) player has no legal attack.
   const stuck = !!(G && !G.over && !G.roundOver && !(G.turn===G.p2 && isAI()) && G.turn && !legalAttacks(G.turn).length);
