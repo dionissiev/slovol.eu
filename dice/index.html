@@ -236,7 +236,7 @@
       <b style="color:#65a30d">Poison die (p):</b> attacks normally (Power, Trip-style rerolls — never as a Skill helper), but scores <b>negative</b>: whoever captures it scores −its size, and a kept poison die subtracts half its size at round end.
     </div>
     <div id="aiBlock">
-      <label style="margin-top:12px"><input type="checkbox" id="ai" checked> Player 2 played by the computer</label>
+      <label style="margin-top:12px"><input type="checkbox" id="ai" checked> <span id="aiLabel">Player 2 played by the computer</span></label>
       <label style="margin-top:12px">Computer difficulty</label>
       <select id="diff">
         <option value="easy">Easy — random attacks</option>
@@ -561,7 +561,10 @@ function challenge(name) {
   document.getElementById("aiBlock").style.display = "block";
   document.getElementById("ai").checked = true;
   document.getElementById("ai").disabled = true;
-  document.getElementById("diff").parentElement.querySelector("label").textContent = "Philosopher's skill";
+  // Rename only the text, never the label's whole content — that would delete
+  // the #ai checkbox and break every later local / campaign start.
+  const aiLabel = document.getElementById("aiLabel");
+  if (aiLabel) aiLabel.textContent = "Philosopher's skill";
   document.getElementById("fightBtn").textContent = `🎲 Let's roll, ${name}!`;
   updateSwing();
 }
@@ -797,6 +800,11 @@ function openSetup(mode) {
   document.getElementById("p2block").style.display = mode === "host" ? "none" : "block";
   document.getElementById("lbl2").textContent = mode === "join" ? "Your character" : "Player 2 character";
   document.getElementById("aiBlock").style.display = mode === "local" ? "block" : "none";
+  // A campaign challenge renames and locks the computer toggle; put both back.
+  const aiBox = document.getElementById("ai");
+  if (aiBox) aiBox.disabled = false;
+  const aiLab = document.getElementById("aiLabel");
+  if (aiLab) aiLab.textContent = "Player 2 played by the computer";
   document.getElementById("nameRow").style.display = mode === "hotseat" ? "flex" : "none";
   document.getElementById("fightBtn").textContent =
     mode === "host" ? "Create match" : mode === "join" ? "Join & roll" : "Let's roll!";
@@ -1226,7 +1234,8 @@ function beginFight(n1, n2) {
   document.getElementById("beginBtn").style.display = "none";
   document.getElementById("fightBtn").style.display = "";
   // Local: the computer may play side two (or a human may take it, same screen).
-  const vsComputer = MODE === "local" && document.getElementById("ai").checked;
+  const aiToggle = document.getElementById("ai");
+  const vsComputer = MODE === "local" && (!aiToggle || aiToggle.checked);
   const nick = (id, fallback) => {
     const el = document.getElementById(id);
     return (el && el.value.trim()) || fallback;
