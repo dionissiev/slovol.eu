@@ -127,6 +127,12 @@
       border-color: #65a30d;
     }
 
+    .slovol-chip-red {
+      background: #7f1d1d;
+      color: #fca5a5;
+      border-color: #dc2626;
+    }
+
     .slovol-quote {
       padding: 10px 14px;
       border-left: 3px solid var(--accent);
@@ -148,9 +154,6 @@
   <script type="text/babel">
     const { useState, useMemo, useEffect } = React;
 
-    // =========================================================
-    // SUPABASE CREDENTIALS & CLIENT INITIALIZATION
-    // =========================================================
     const SUPABASE_URL = 'https://grqjdubikeedbdisvcpq.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_wFor1ik9pKpyHeUnojL4Yw_72mgpHfv';
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -187,8 +190,9 @@
       const [limitType, setLimitType] = useState('word');
       const [limitValue, setLimitValue] = useState(50);
       const [turnLimit, setTurnLimit] = useState('');
-      const [isClosed, setIsClosed] = useState(false);
-      const [turnOrderType, setTurnOrderType] = useState('free');
+      const [visibility, setVisibility] = useState('open'); // 'open' | 'closed' | 'hidden'
+      const [allowedUsersInput, setAllowedUsersInput] = useState(''); // comma-separated usernames/emails
+      const [turnOrderType, setTurnOrderType] = useState('free'); // 'free' | 'fixed'
       const [consecutiveMode, setConsecutiveMode] = useState('not_allowed');
       const [isAnonymous, setIsAnonymous] = useState(false);
       const [initialPrompt, setInitialPrompt] = useState('');
@@ -196,7 +200,6 @@
       // Editor State
       const [newTurnText, setNewTurnText] = useState('');
 
-      // Fetch stories and auth session on initial render
       useEffect(() => {
         fetchStories();
 
@@ -222,7 +225,6 @@
         if (error) {
           console.error('Error fetching stories:', error);
         } else if (data) {
-          // Normalize entries sorting chronologically
           const formatted = data.map(story => ({
             ...story,
             entries: (story.story_entries || []).sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
@@ -235,30 +237,46 @@
         setLoading(false);
       };
 
-      const activeStory = useMemo(() => {
-        return stories.find(s => s.id === activeStoryId) || stories[0];
-      }, [stories, activeStoryId]);
+      // Filter stories based on Visibility rules
+      const visibleStories = useMemo(() => {
+        return stories.filter(s => {
+          const vis = s.visibility || 'open';
+          if (vis === 'open' || vis === 'closed') return true;
+          if (vis === 'hidden') {
+            if (!currentUser) return false;
+            const isCreator = s.creator_id === currentUser.id;
+            const userIdentifier = currentUser.user_metadata?.username || currentUser.email;
+            const isAllowed = s.allowed_users && s.allowed_users.includes(userIdentifier);
+            return isCreator || isAllowed;
+          }
+          return true;
+        });
+      }, [stories, currentUser]);
 
-      // Prompt Word & Symbol Counters
+      const activeStory = useMemo(() => {
+        return visibleStories.find(s => s.id === activeStoryId) || visibleStories[0];
+      }, [visibleStories, activeStoryId]);
+
+      // Counters
       const initialPromptWordCount = useMemo(() => {
         const trimmed = initialPrompt.trim();
         return trimmed ? trimmed.split(/\s+/).length : 0;
       }, [initialPrompt]);
-
       const initialPromptSymbolCount = initialPrompt.length;
 
-      // Active Workspace Counters
       const currentWordCount = useMemo(() => {
         const trimmed = newTurnText.trim();
         return trimmed ? trimmed.split(/\s+/).length : 0;
       }, [newTurnText]);
-
       const currentSymbolCount = newTurnText.length;
 
       // Creation Validation Check
       const creationValidation = useMemo(() => {
         if (!currentUser) return { canCreate: false, reason: 'You must be logged in to create a story.' };
         if (!initialPrompt.trim()) return { canCreate: false, reason: 'Initial prompt is required.' };
+        if (visibility !== 'open' && !allowedUsersInput.trim()) {
+          return { canCreate: false, reason: 'List at least one contributor username/email for Closed/Hidden stories.' };
+        }
         if (limitType === 'word' && initialPromptWordCount > Number(limitValue)) {
           return { canCreate: false, reason: `Prompt exceeds limit (${initialPromptWordCount}/${limitValue} words)` };
         }
@@ -266,28 +284,43 @@
           return { canCreate: false, reason: `Prompt exceeds limit (${initialPromptSymbolCount}/${limitValue} symbols)` };
         }
         return { canCreate: true, reason: '' };
-      }, [currentUser, initialPrompt, limitType, limitValue, initialPromptWordCount, initialPromptSymbolCount]);
+      }, [currentUser, initialPrompt, visibility, allowedUsersInput, limitType, limitValue, initialPromptWordCount, initialPromptSymbolCount]);
 
       // Turn Validation Check
       const turnValidation = useMemo(() => {
         if (!currentUser) return { canPost: false, reason: 'You must be logged in to post a turn.' };
         if (!activeStory) return { canPost: false, reason: 'No story selected.' };
 
+        const userIdentifier = currentUser.user_metadata?.username || currentUser.email;
+        const isCreator = activeStory.creator_id === currentUser.id;
+        const isAllowedList = activeStory.allowed_users || [];
+
+        // Check Access Rights for Closed / Hidden Stories
+        if ((activeStory.visibility === 'closed' || activeStory.visibility === 'hidden') && !isCreator && !isAllowedList.includes(userIdentifier)) {
+          return { canPost: false, reason: 'This story is restricted to invited authors.' };
+        }
+
+        // Check Maximum Turns
         if (activeStory.turn_limit && activeStory.entries.length >= activeStory.turn_limit) {
           return { canPost: false, reason: 'This story has reached its maximum allowed turn count.' };
         }
 
-        if (activeStory.is_closed && !activeStory.allowed_users?.includes(currentUser.id)) {
-          return { canPost: false, reason: 'This story is restricted to invited authors.' };
+        // Check Strict Turn Order
+        if (activeStory.turn_order_type === 'fixed' && isAllowedList.length > 0) {
+          const fullOrder = [activeStory.creator_id, ...isAllowedList];
+          const nextAuthorExpected = fullOrder[activeStory.entries.length % fullOrder.length];
+          if (userIdentifier !== nextAuthorExpected && currentUser.id !== nextAuthorExpected) {
+            return { canPost: false, reason: `It is currently ${nextAuthorExpected}'s turn.` };
+          }
         }
 
         // Consecutive Entry Rule Evaluation
         const lastEntry = activeStory.entries[activeStory.entries.length - 1];
-        if (lastEntry && lastEntry.author_id === currentUser.id && activeStory.entries.length > 0) {
+        if (lastEntry && (lastEntry.author_id === currentUser.id || lastEntry.author_name === userIdentifier)) {
           const mode = activeStory.consecutive_mode || 'not_allowed';
           if (mode === 'not_allowed') {
-            return { canPost: false, reason: 'Consecutive turns are not allowed in this story. Wait for another participant.' };
-          } else if (mode === 'author_only' && activeStory.creator_id !== currentUser.id) {
+            return { canPost: false, reason: 'Consecutive turns are not allowed. Wait for another author to post.' };
+          } else if (mode === 'author_only' && !isCreator) {
             return { canPost: false, reason: 'Consecutive turns are only permitted for the story creator.' };
           }
         }
@@ -306,7 +339,7 @@
         return { canPost: true, reason: 'Ready to post!' };
       }, [currentUser, activeStory, currentWordCount, currentSymbolCount]);
 
-      // Auth Actions
+      // Auth Handlers
       const handleAuthSubmit = async (e) => {
         e.preventDefault();
         setAuthMessage('');
@@ -320,7 +353,7 @@
             }
           });
           if (error) setAuthMessage(error.message);
-          else setAuthMessage('Check your email inbox for the activation link!');
+          else setAuthMessage('Activation link sent! Check your email to verify your account.');
         } else {
           const { data, error } = await supabase.auth.signInWithPassword({
             email: authEmail,
@@ -339,14 +372,17 @@
         setCurrentUser(null);
       };
 
-      // Story & Entry Actions
+      // Story Handlers
       const handleCreateStory = async (e) => {
         e.preventDefault();
         if (!creationValidation.canCreate) return;
 
         const displayName = currentUser.user_metadata?.username || currentUser.email.split('@')[0];
+        const parsedAllowedUsers = allowedUsersInput
+          .split(',')
+          .map(u => u.trim())
+          .filter(u => u.length > 0);
 
-        // 1. Insert Story Row
         const { data: storyData, error: storyError } = await supabase
           .from('stories')
           .insert([
@@ -357,9 +393,9 @@
               limit_type: limitType,
               limit_value: Number(limitValue),
               turn_limit: turnLimit ? Number(turnLimit) : null,
-              is_closed: isClosed,
-              allowed_users: [currentUser.id],
-              turn_order_type: isClosed ? turnOrderType : 'free',
+              visibility: visibility,
+              allowed_users: parsedAllowedUsers,
+              turn_order_type: turnOrderType,
               consecutive_mode: consecutiveMode,
               is_anonymous: isAnonymous
             }
@@ -372,7 +408,6 @@
           return;
         }
 
-        // 2. Insert Opening Prompt Entry
         const { error: entryError } = await supabase
           .from('story_entries')
           .insert([
@@ -387,11 +422,12 @@
           ]);
 
         if (entryError) {
-          alert('Error saving opening prompt: ' + entryError.message);
+          alert('Error saving prompt: ' + entryError.message);
         } else {
           setNewTitle('');
           setNewDesc('');
           setInitialPrompt('');
+          setAllowedUsersInput('');
           await fetchStories();
           setActiveStoryId(storyData.id);
           setActiveTab('read');
@@ -431,7 +467,7 @@
               <h1 className="text-2xl font-bold text-amber-400 flex items-center gap-2">
                 <FeatherIcon /> SlovoL Chain Stories
               </h1>
-              <p className="text-xs text-gray-400 mt-1">Collaborative Turn-Based Engine</p>
+              <p className="text-xs text-gray-400 mt-1">Collaborative Writing Engine</p>
             </div>
 
             <div className="flex items-center gap-3">
@@ -454,7 +490,7 @@
 
           <div className="flex gap-2 mb-6 overflow-x-auto pb-2 border-b border-gray-800">
             <button onClick={() => setActiveTab('browse')} className={`slovol-btn ${activeTab === 'browse' ? 'slovol-btn-primary' : ''}`}>
-              Browse Stories ({stories.length})
+              Browse Stories ({visibleStories.length})
             </button>
             <button onClick={() => setActiveTab('read')} className={`slovol-btn ${activeTab === 'read' ? 'slovol-btn-primary' : ''}`}>
               Workspace
@@ -469,16 +505,16 @@
             <div>
               {loading ? (
                 <div className="text-center py-10 text-gray-400 text-sm">Loading stories from database...</div>
-              ) : stories.length === 0 ? (
+              ) : visibleStories.length === 0 ? (
                 <div className="slovol-card text-center py-8">
-                  <p className="text-gray-300 text-sm mb-3">No active stories found on the database.</p>
+                  <p className="text-gray-300 text-sm mb-3">No stories visible to you yet.</p>
                   <button onClick={() => setActiveTab('create')} className="slovol-btn slovol-btn-primary text-xs">
-                    Be the first to start a story!
+                    Start a new story!
                   </button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {stories.map(s => (
+                  {visibleStories.map(s => (
                     <div key={s.id} className={`slovol-card flex flex-col justify-between ${s.id === activeStoryId ? 'active' : ''}`}>
                       <div>
                         <div className="flex justify-between items-start gap-2 mb-2">
@@ -488,8 +524,11 @@
                         <p className="text-xs text-gray-300 mb-3">{s.description}</p>
                         <div className="flex flex-wrap gap-2 text-xs mb-4">
                           <span className="slovol-chip slovol-chip-amber">Limit: {s.limit_value} {s.limit_type}s</span>
+                          <span className={`slovol-chip ${s.visibility === 'hidden' ? 'slovol-chip-red' : s.visibility === 'closed' ? 'slovol-chip-amber' : 'slovol-chip-lime'}`}>
+                            {s.visibility === 'hidden' ? '🔒 Hidden' : s.visibility === 'closed' ? '👥 Closed Group' : '🌐 Open Public'}
+                          </span>
                           <span className="slovol-chip">
-                            {s.consecutive_mode === 'not_allowed' ? 'No Consecutive Turns' : s.consecutive_mode === 'author_only' ? 'Creator Consecutive Allowed' : 'Any Consecutive Allowed'}
+                            {s.turn_order_type === 'fixed' ? '🔄 Round Robin' : '⚡ Free-for-all'}
                           </span>
                         </div>
                       </div>
@@ -513,7 +552,12 @@
               ) : (
                 <div className="space-y-6">
                   <div className="slovol-card">
-                    <h2 className="text-xl font-bold text-amber-400 mb-1">{activeStory.title}</h2>
+                    <div className="flex justify-between items-start">
+                      <h2 className="text-xl font-bold text-amber-400 mb-1">{activeStory.title}</h2>
+                      <span className="slovol-chip slovol-chip-amber text-[10px]">
+                        {activeStory.visibility?.toUpperCase() || 'OPEN'}
+                      </span>
+                    </div>
                     <p className="text-xs text-gray-300">{activeStory.description}</p>
                   </div>
 
@@ -532,7 +576,7 @@
                     ))}
                   </div>
 
-                  {/* Contributor Editor */}
+                  {/* Editor */}
                   <div className="slovol-card border-amber-500/50">
                     <h3 className="text-sm font-bold text-amber-400 mb-2">Contribute Next Turn</h3>
                     
@@ -540,7 +584,7 @@
                       <div className="slovol-quote text-xs text-red-300 border-red-500 my-2">{turnValidation.reason}</div>
                     ) : (
                       <div className="slovol-quote text-xs text-lime-300 border-lime-500 my-2">
-                        Ready to post! Enforce limit: max {activeStory.limit_value} {activeStory.limit_type}s.
+                        Ready to post! Limit: max {activeStory.limit_value} {activeStory.limit_type}s.
                       </div>
                     )}
 
@@ -595,25 +639,60 @@
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block mb-1 text-gray-300 font-medium">Count Metric (Mandatory)</label>
+                      <label className="block mb-1 text-gray-300 font-medium">Count Metric</label>
                       <select value={limitType} onChange={(e) => setLimitType(e.target.value)} className="slovol-select">
                         <option value="word">Word Count Limit</option>
                         <option value="symbol">Symbol/Character Limit</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block mb-1 text-gray-300 font-medium">Limit Value Per Turn (Mandatory)</label>
+                      <label className="block mb-1 text-gray-300 font-medium">Limit Value Per Turn</label>
                       <input type="number" min="5" value={limitValue} onChange={(e) => setLimitValue(e.target.value)} required className="slovol-input" />
                     </div>
                   </div>
 
-                  <div className="p-3 bg-gray-900/60 rounded-lg border border-gray-700">
-                    <label className="block mb-2 font-bold text-amber-400">Consecutive Entries Rule</label>
-                    <select value={consecutiveMode} onChange={(e) => setConsecutiveMode(e.target.value)} className="slovol-select">
-                      <option value="not_allowed">Not Allowed (Default - strict alternating turns)</option>
-                      <option value="author_only">Allowed for Creator Only</option>
-                      <option value="any">Allowed for Any Contributor</option>
-                    </select>
+                  {/* Access & Visibility Setting */}
+                  <div className="p-3 bg-gray-900/60 rounded-lg border border-gray-700 space-y-3">
+                    <div>
+                      <label className="block mb-1 font-bold text-amber-400">Story Access & Visibility</label>
+                      <select value={visibility} onChange={(e) => setVisibility(e.target.value)} className="slovol-select">
+                        <option value="open">Open — Anyone with an account can read & write</option>
+                        <option value="closed">Closed — Anyone can read, but only listed contributors can write</option>
+                        <option value="hidden">Hidden — Only creator and listed contributors can see & write</option>
+                      </select>
+                    </div>
+
+                    {visibility !== 'open' && (
+                      <div>
+                        <label className="block mb-1 text-gray-300 font-medium">Invited Contributors (Comma separated usernames/emails)</label>
+                        <input
+                          type="text"
+                          value={allowedUsersInput}
+                          onChange={(e) => setAllowedUsersInput(e.target.value)}
+                          placeholder="e.g. elena@example.com, Marco_Polo"
+                          className="slovol-input"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Turn Order Setting */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block mb-1 text-gray-300 font-medium">Turn Order Rule</label>
+                      <select value={turnOrderType} onChange={(e) => setTurnOrderType(e.target.value)} className="slovol-select">
+                        <option value="free">Free-for-all (Anyone available can write)</option>
+                        <option value="fixed">Strict Round-Robin (Fixed order of contributors)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block mb-1 text-gray-300 font-medium">Consecutive Entries Rule</label>
+                      <select value={consecutiveMode} onChange={(e) => setConsecutiveMode(e.target.value)} className="slovol-select">
+                        <option value="not_allowed">Not Allowed (Strict alternating turns)</option>
+                        <option value="author_only">Allowed for Creator Only</option>
+                        <option value="any">Allowed for Any Contributor</option>
+                      </select>
+                    </div>
                   </div>
 
                   <div>
@@ -724,6 +803,7 @@
       );
     }
 
+    // Modern React 18 Root Mounting
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
   </script>
