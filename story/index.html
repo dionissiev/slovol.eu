@@ -145,21 +145,10 @@
 
   <script type="text/babel">
     const { useState, useMemo } = React;
-    // =========================================================
-    // PASTE YOUR SUPABASE KEYS HERE
-    // =========================================================
     const SUPABASE_URL = 'https://grqjdubikeedbdisvcpq.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_wFor1ik9pKpyHeUnojL4Yw_72mgpHfv';
-  
-    // Create the live client instance
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-  // =========================================================
-  // Your Components & App Logic Start Below
-  // =========================================================
-
-    
-
+  
     const FeatherIcon = () => (
       <svg className="w-5 h-5 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
