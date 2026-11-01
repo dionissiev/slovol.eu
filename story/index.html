@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chain Story Platform - SlovoL Theme</title>
+  <title>Chain Story Platform</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   
   <!-- React & React DOM -->
@@ -145,6 +145,20 @@
 
   <script type="text/babel">
     const { useState, useMemo } = React;
+    // =========================================================
+    // PASTE YOUR SUPABASE KEYS HERE
+    // =========================================================
+    const SUPABASE_URL = 'https://grqjdubikeedbdisvcpq.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_wFor1ik9pKpyHeUnojL4Yw_72mgpHfv';
+  
+    // Create the live client instance
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // =========================================================
+  // Your Components & App Logic Start Below
+  // =========================================================
+
+    
 
     const FeatherIcon = () => (
       <svg className="w-5 h-5 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
