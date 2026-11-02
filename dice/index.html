@@ -297,7 +297,7 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     <div class="recipe" style="margin-top:10px;line-height:1.5">
       <b style="color:#7c3aed">Shadow die (s):</b> can't Power attack. Instead it captures any enemy die showing a value <b>≥ its own</b> (within the target's range). Skill attacks as normal.<br>
       <b style="color:#d97706">Trip die (t):</b> can make a Trip attack: <b>both dice reroll</b> — you capture if your new roll ≥ theirs. On a miss, both keep their new values. Trip dice don't count for going first.<br>
-      <b style="color:#65a30d">Poison die (p):</b> attacks normally (Power, Trip-style rerolls — never as a Skill helper), but scores <b>negative</b>: whoever captures it scores −its size, and a kept poison die subtracts half its size at round end.
+      <b style="color:#65a30d">Poison die (p):</b> attacks normally (Power, Trip-style rerolls — never as a Skill helper), but scores <b>negative</b>: a kept poison die subtracts its full size, and a captured poison die subtracts half its size (rounded down) from the capturer's score.
     </div>
     <div id="aiBlock">
       <label style="margin-top:12px"><input type="checkbox" id="ai" checked> <span id="aiLabel">Player 2 played by the computer</span></label>
@@ -1679,6 +1679,12 @@ function log(msg) {
 function other(p) { return p === G.p1 ? G.p2 : G.p1; }
 function isAI() { return !!(G && G.ai); }
 
+function roundDieScore(d, captured) {
+  if (d.special === "poison")
+    return -(captured ? Math.floor(d.sides / 2) : d.sides);
+  return captured ? d.sides : Math.ceil(d.sides / 2);
+}
+
 function startRound() {
   // All dice are re-rolled at the start of each round; captured dice return to play.
   G.p1.dice.forEach(d => { d.captured=false; d.value=roll(d.sides); });
@@ -1708,16 +1714,16 @@ function render() {
   for (const [i,p] of [[1,G.p1],[2,G.p2]]) {
     document.getElementById(`p${i}name`).textContent = `${p.name} — ${p.btnName}`;
     const live = p.dice.filter(d=>!d.captured);
-    const kept = live.reduce((s,d)=>s + (d.special==="poison"?-1:1)*Math.ceil(d.sides/2),0);
-    const cap  = p.captured.reduce((s,d)=>s + (d.special==="poison"?-1:1)*d.sides,0);
-    // e.g. "captured 8 (20 - 6p - 6p)" — poison dice shown as negative terms
+    const kept = live.reduce((s,d)=>s + roundDieScore(d, false),0);
+    const cap  = p.captured.reduce((s,d)=>s + roundDieScore(d, true),0);
+    // Poison penalties differ by status: full size when kept, half when captured.
     const capParts = p.captured.filter(d=>d.special!=="poison").map(d=>d.sides);
-    const capNeg   = p.captured.filter(d=>d.special==="poison").map(d=>`-${d.sides}p`);
+    const capNeg   = p.captured.filter(d=>d.special==="poison").map(d=>`${roundDieScore(d, true)}p`);
     const capStr   = capParts.length || capNeg.length
       ? ` (captured ${cap} = ${capParts.join(" + ") || "0"}${capNeg.length ? " " + capNeg.join(" ") : ""})`
       : " (no captures)";
     const livePos  = live.filter(d=>d.special!=="poison").map(d=>Math.ceil(d.sides/2));
-    const liveNeg  = live.filter(d=>d.special==="poison").map(d=>`-${Math.ceil(d.sides/2)}p`);
+    const liveNeg  = live.filter(d=>d.special==="poison").map(d=>`${roundDieScore(d, false)}p`);
     const keptStr  = livePos.length || liveNeg.length
       ? ` + kept ${kept} = ${livePos.join(" + ") || "0"}${liveNeg.length ? " " + liveNeg.join(" ") : ""}`
       : " (nothing kept)";
@@ -1900,8 +1906,8 @@ function endRound() {
   G.roundOver = true;
   const score = p => {
     const live = p.dice.filter(d=>!d.captured);
-    const kept = live.reduce((s,d)=>s + (d.special==="poison"?-1:1)*Math.ceil(d.sides/2),0);
-    const cap  = p.captured.reduce((s,d)=>s + (d.special==="poison"?-1:1)*d.sides,0);
+    const kept = live.reduce((s,d)=>s + roundDieScore(d, false),0);
+    const cap  = p.captured.reduce((s,d)=>s + roundDieScore(d, true),0);
     return cap + kept;
   };
   const s1 = score(G.p1), s2 = score(G.p2);
@@ -1912,9 +1918,15 @@ function endRound() {
   log(msg);
   // Detailed score breakdown for each player, so scoring can be audited.
   const breakdown = p => {
-    const parts = p.captured.map(d => `${d.special==="poison"?"−":"+"}${d.sides}${d.special==="poison"?"(poison)":""} (captured)`);
-    for (const d of p.dice) if (!d.captured)
-      parts.push(`${d.special==="poison"?"−":"+"}${Math.ceil(d.sides/2)}${d.special==="poison"?"(poison)":""} (kept d${d.sides})`);
+    const format = (d, captured) => {
+      const points = roundDieScore(d, captured);
+      const amount = `${points > 0 ? "+" : ""}${points}`;
+      return d.special === "poison"
+        ? `${amount} (${captured ? "captured" : "kept"} poison d${d.sides})`
+        : `${amount} (${captured ? "captured" : `kept d${d.sides}`})`;
+    };
+    const parts = p.captured.map(d => format(d, true));
+    for (const d of p.dice) if (!d.captured) parts.push(format(d, false));
     return parts.length ? parts.join(" ") : "nothing";
   };
   log(`🧮 ${G.p1.name} breakdown: ${breakdown(G.p1)} = ${s1}`);
