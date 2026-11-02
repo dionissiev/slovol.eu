@@ -53,6 +53,13 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
   button:hover { background:#4b5563; }
   button:disabled { opacity:.45; cursor:not-allowed; }
   button.primary { background:#fbbf24; color:#111827; font-weight:700; }
+  button.readyButton { background:#65a30d; color:#111827; font-weight:700; }
+  button.readyButton:hover { background:#84cc16; }
+  button.readyButton:disabled { opacity:1; cursor:default; }
+  button.readyPending { background:#d97706; color:#111827; }
+  button.readyPending:disabled { opacity:.85; cursor:wait; }
+  #roomStatus.waitingReady { color:#fde68a; font-weight:600; }
+  #roomStatus.roomError { color:#f87171; font-weight:600; }
   #passBtn.alert { background:#ef4444; color:#fff; font-weight:700; animation:passPulse 1s ease-in-out infinite; }
   @keyframes passPulse { 50% { transform:scale(1.08); } }
   .log { background:#1f2937; border-radius:12px; padding:10px; max-height:180px; overflow-y:auto; font-size:.85rem; color:#d1d5db; }
@@ -272,7 +279,7 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 <div class="panel" id="setup" style="display:none">
   <h1>🎲 Wise Dice</h1>
   <h2 id="roomTitle" style="text-align:center;display:none"></h2>
-  <div class="sub" id="roomStatus" style="display:none"></div>
+  <div class="sub" id="roomStatus" role="status" aria-live="polite" style="display:none"></div>
   <div class="sub" id="setupSub">Captured dice score full size; kept dice score half (rounded up). First to 3 rounds wins.</div>
   <div class="setup">
     <div id="nameRow" style="display:none;gap:10px;margin-top:12px">
@@ -1044,6 +1051,7 @@ function openOnlineRoom() {
   document.getElementById("aiBlock").style.display = "none";
   document.getElementById("nameRow").style.display = "none";
   document.getElementById("fightBtn").textContent = "Ready";
+  document.getElementById("fightBtn").classList.remove("readyButton", "readyPending");
   document.getElementById("fightBtn").onclick = onlineReady;
   document.getElementById("fightBtn").style.display = "";
   document.getElementById("fightBtn").disabled = false;
@@ -1077,13 +1085,19 @@ function renderOnlineRoom() {
     document.getElementById("leaveRoomBtn").onclick = returnFromClosedRoom;
     return;
   }
+  status.classList.remove("roomError");
+  status.classList.toggle("waitingReady", ownReady && !opponentReady);
   status.textContent = !opponentJoined
     ? "Waiting on other player to join the lobby."
     : ownReady
-      ? opponentReady ? "Both players are ready. Starting the game…" : "You’re ready — waiting on other player."
+      ? opponentReady ? "Both players are ready. Starting the game…" : "You’re ready — waiting for your opponent to get ready."
       : opponentReady ? "The other player is ready. Choose your character and press Ready."
         : "Opponent is in the lobby. Choose your character and press Ready.";
-  document.getElementById("fightBtn").disabled = ownReady;
+  const readyButton = document.getElementById("fightBtn");
+  readyButton.textContent = ownReady ? "Ready ✓" : "Ready";
+  readyButton.classList.toggle("readyButton", ownReady);
+  readyButton.classList.remove("readyPending");
+  readyButton.disabled = ownReady;
   document.getElementById("leaveRoomBtn").disabled = closingRoom;
   document.getElementById("btn1").disabled = ownReady;
   document.querySelectorAll("#sw1 select").forEach(select => { select.disabled = ownReady; });
@@ -1212,12 +1226,19 @@ async function onlineReady() {
   if (!MATCH || !ME) return;
   const button = document.getElementById("fightBtn");
   button.disabled = true;
-  const setup = {
-    btnName: resolveRandom("btn1"),
-    swingSizes: readSwingSizes("sw1"),
-    customTypes: readCustomTypes("sw1")
-  };
+  button.textContent = "Setting ready…";
+  button.classList.remove("readyButton");
+  button.classList.add("readyPending");
+  const status = document.getElementById("roomStatus");
+  status.textContent = "Saving your ready status…";
+  status.classList.add("waitingReady");
+  status.classList.remove("roomError");
   try {
+    const setup = {
+      btnName: resolveRandom("btn1"),
+      swingSizes: readSwingSizes("sw1"),
+      customTypes: readCustomTypes("sw1")
+    };
     await persistMatchState(st => ({
       ...st,
       phase: st.phase || "lobby",
@@ -1225,12 +1246,21 @@ async function onlineReady() {
       [MATCH.p1 === ME.id ? "p1ready" : "p2ready"]: true
     }));
     renderOnlineRoom();
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = "Ready";
+    button.classList.remove("readyButton", "readyPending");
+    status.classList.remove("waitingReady");
+    status.classList.add("roomError");
+    status.textContent = "Could not save your ready status: " + error.message;
+    return;
+  }
+  try {
     await startOnlineGameIfReady();
   } catch (error) {
-    renderOnlineRoom();
-    const readyKey = MATCH.p1 === ME.id ? "p1ready" : "p2ready";
-    if (!MATCH.state?.[readyKey]) button.disabled = false;
-    document.getElementById("roomStatus").textContent = "Could not complete ready-up: " + error.message;
+    status.classList.remove("waitingReady");
+    status.classList.add("roomError");
+    status.textContent = "You’re marked ready, but the game could not start: " + error.message;
   }
 }
 
