@@ -501,7 +501,7 @@ function navBack() {
   const id = ["lobby", "onlineSetup", "setup", "game", "profile", "campaign", "auth"]
     .find(p => document.getElementById(p).style.display === "block");
   if (id === "onlineSetup") {
-    enterLobby();
+    discardPreparedHostRoom().then(ok => { if (ok) enterLobby(); });
   } else if (id === "setup" && MODE === "online") {
     closeOnlineRoom();
   } else if (id === "campaign" || id === "setup") {
@@ -932,11 +932,15 @@ function closeProfile() { showPanel(G && G.over ? "game" : "lobby"); }
 // ---------- Online lobby: create / join matches ----------
 let generatedGameCode = "";
 let copiedGameCode = false;
+let preparedHostRoom = null;
+let preparingHostRoom = null;
 let gameStartBusy = false;
 
 function openOnlineSetup() {
   generatedGameCode = makeCode();
   copiedGameCode = false;
+  preparedHostRoom = null;
+  preparingHostRoom = null;
   document.getElementById("generatedCode").value = generatedGameCode;
   document.getElementById("joinCode").value = "";
   document.getElementById("goLobbyBtn").disabled = true;
@@ -958,8 +962,65 @@ async function copyGameCode() {
     }
   }
   copiedGameCode = true;
-  document.getElementById("goLobbyBtn").disabled = false;
-  document.getElementById("onlineSetupErr").textContent = "Code copied. Create your room when you're ready.";
+  updateGoLobbyAvailability();
+  document.getElementById("onlineSetupErr").textContent = "Code copied. Preparing your room…";
+  try {
+    await prepareHostRoom(code);
+    document.getElementById("onlineSetupErr").textContent = "Code copied. Your room is ready to join.";
+  } catch (error) {
+    document.getElementById("onlineSetupErr").textContent = "The code was copied, but the room could not be created: " + error.message;
+  }
+  updateGoLobbyAvailability();
+}
+
+async function prepareHostRoom(code) {
+  if (preparedHostRoom?.join_code === code) return preparedHostRoom;
+  if (preparingHostRoom) return preparingHostRoom;
+  preparingHostRoom = (async () => {
+    const { data, error } = await sb.from("matches").insert({
+      p1: ME.id, join_code: code, status: "waiting",
+      state: { v: 1, phase: "lobby", p1ready: false, p2ready: false }
+    }).select().single();
+    if (error) throw error;
+    preparedHostRoom = data;
+    return data;
+  })();
+  try {
+    return await preparingHostRoom;
+  } finally {
+    preparingHostRoom = null;
+  }
+}
+
+async function discardPreparedHostRoom() {
+  if (!preparedHostRoom) return true;
+  const room = preparedHostRoom;
+  try {
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const { data: current, error: readError } = await sb.from("matches")
+        .select("*").eq("id", room.id).eq("p1", ME.id).maybeSingle();
+      if (readError) throw readError;
+      if (!current || current.status !== "waiting" || current.state?.phase === "game") {
+        preparedHostRoom = null;
+        return true;
+      }
+      const { data, error } = await sb.from("matches").update({
+        status: "finished",
+        state: { ...(current.state || {}), phase: "cancelled" },
+        rev: (current.rev || 0) + 1
+      }).eq("id", current.id).eq("p1", ME.id).eq("status", "waiting")
+        .eq("rev", current.rev || 0).select().maybeSingle();
+      if (error) throw error;
+      if (data) {
+        preparedHostRoom = null;
+        return true;
+      }
+    }
+    throw new Error("The room changed repeatedly. Please try again.");
+  } catch (error) {
+    document.getElementById("onlineSetupErr").textContent = "Could not discard the prepared room: " + error.message;
+    return false;
+  }
 }
 
 function updateGoLobbyAvailability() {
@@ -967,7 +1028,9 @@ function updateGoLobbyAvailability() {
   field.value = field.value.toUpperCase();
   const code = field.value.trim();
   const validCode = /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/.test(code);
-  document.getElementById("goLobbyBtn").disabled = code ? !validCode : !copiedGameCode;
+  document.getElementById("goLobbyBtn").disabled = code
+    ? !validCode
+    : !(copiedGameCode && preparedHostRoom?.join_code === generatedGameCode);
   document.getElementById("onlineSetupErr").textContent = code && !validCode
     ? "Enter a valid 6-character game code." : "";
 }
@@ -983,9 +1046,14 @@ async function goToOnlineLobby() {
       document.getElementById("onlineSetupErr").textContent = "Enter a valid 6-character game code.";
       return;
     }
+    if (!await discardPreparedHostRoom()) return;
     return joinMatch(joinCode);
   }
   if (!copiedGameCode) return;
+  if (!preparedHostRoom || preparedHostRoom.join_code !== generatedGameCode) {
+    document.getElementById("onlineSetupErr").textContent = "Copy the code and wait for your room to finish preparing.";
+    return;
+  }
   return hostMatch(generatedGameCode);
 }
 
@@ -1030,17 +1098,15 @@ function makeCode() {
 }
 
 async function hostMatch(code) {
-  const { data, error } = await sb.from("matches").insert({
-    p1: ME.id, join_code: code, status: "waiting",
-    state: { v: 1, phase: "lobby", p1ready: false, p2ready: false }
-  }).select().single();
-  if (error) {
+  const data = await prepareHostRoom(code).catch(error => {
     document.getElementById("onlineSetupErr").textContent = "Could not create the room: " + error.message;
-    return;
-  }
+    return null;
+  });
+  if (!data) return;
   MATCH = data;
   MODE = "online";
   MATCH.side = 1;
+  preparedHostRoom = null;
   subscribeToMatch();
   G = null;
   openOnlineRoom();
@@ -1183,40 +1249,17 @@ async function persistMatchState(update) {
 }
 
 async function joinMatch(code) {
-  const { data: m, error } = await sb.from("matches").select("*").eq("join_code", code).maybeSingle();
+  const { data, error } = await sb.rpc("join_dice_match", { p_join_code: code });
   if (error) {
-    document.getElementById("onlineSetupErr").textContent = "Could not look up that game: " + error.message;
+    const missingFunction = /join_dice_match|function.+does not exist|schema cache/i.test(error.message || "");
+    document.getElementById("onlineSetupErr").textContent = missingFunction
+      ? "Online joining needs a Supabase SQL setup step. Run the join_dice_match function SQL provided with this change, then retry."
+      : "Could not join that game: " + error.message;
     return;
   }
-  if (!m || m.status !== "waiting" || m.p2) {
-    document.getElementById("onlineSetupErr").textContent = "No available game room found for that code.";
-    return;
-  }
-  if (m.p1 === ME.id) {
-    document.getElementById("onlineSetupErr").textContent = "You can’t join your own game room.";
-    return;
-  }
-  let joined = null;
-  for (let attempt = 0; attempt < 4 && !joined; attempt++) {
-    const { data: current, error: refreshError } = await sb.from("matches").select("*").eq("id", m.id).maybeSingle();
-    if (refreshError) {
-      document.getElementById("onlineSetupErr").textContent = "Could not refresh the room: " + refreshError.message;
-      return;
-    }
-    if (!current || current.status !== "waiting" || current.p2) break;
-    const state = { ...(current.state || {}), phase: "lobby", p2ready: false };
-    const { data, error: joinError } = await sb.from("matches").update({
-      p2: ME.id, state, rev: (current.rev || 0) + 1
-    }).eq("id", current.id).eq("status", "waiting").is("p2", null)
-      .eq("rev", current.rev || 0).select().maybeSingle();
-    if (joinError) {
-      document.getElementById("onlineSetupErr").textContent = "Could not join the room: " + joinError.message;
-      return;
-    }
-    joined = data;
-  }
+  const joined = Array.isArray(data) ? data[0] : data;
   if (!joined) {
-    document.getElementById("onlineSetupErr").textContent = "That room is no longer available or has already been joined.";
+    document.getElementById("onlineSetupErr").textContent = "No available game room found for that code. Check the code, or ask the host to copy it and wait for the room to be ready.";
     return;
   }
   MATCH = { ...joined, side: 2 };
