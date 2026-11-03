@@ -35,14 +35,21 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
          box-shadow:0 2px 6px rgba(0,0,0,.4); }
   .die .size { position:absolute; bottom:2px; right:4px; font-size:.6rem; opacity:.8; }
   .die.sel { outline:3px solid #fbbf24; outline-offset:2px; }
-  .die.target { outline:3px solid #ef4444; outline-offset:2px; animation:pulse 0.7s ease-in-out 2; }
-  .die.rerolled { animation:barrelRoll .5s ease-in-out 1, flashNew .5s ease-out 1; }
-  .die.target.rerolled { animation:pulse .7s ease-in-out 2, barrelRoll .5s ease-in-out 1, flashNew .5s ease-out 1; }
-  @keyframes barrelRoll { to { rotate:360deg; } }
+  .die.target { outline:3px solid #ef4444; outline-offset:2px; }
+  .die.target:not(.rerolled) { animation:pulse 0.7s ease-in-out 2; }
+  .die.rerolled { animation:dieRoll .7s cubic-bezier(.25,.8,.35,1) 1, flashNew .7s ease-out 1; }
+  @keyframes dieRoll {
+    0% { transform:perspective(420px) rotateX(0) rotateY(0) rotateZ(0) scale(1); }
+    22% { transform:perspective(420px) rotateX(70deg) rotateY(150deg) rotateZ(110deg) scale(.72) translateY(-8px); }
+    48% { transform:perspective(420px) rotateX(205deg) rotateY(310deg) rotateZ(250deg) scale(1.12) translateY(-12px); }
+    76% { transform:perspective(420px) rotateX(310deg) rotateY(520deg) rotateZ(470deg) scale(.82) translateY(-6px); }
+    100% { transform:perspective(420px) rotateX(360deg) rotateY(720deg) rotateZ(720deg) scale(1) translateY(0); }
+  }
   @keyframes flashNew { 0% { box-shadow:0 0 0 4px #22d3ee; filter:brightness(1.6); } 100% { box-shadow:0 2px 6px rgba(0,0,0,.4); filter:none; } }
   @keyframes pulse { 50% { transform:scale(1.12); } }
   @media (prefers-reduced-motion:reduce) {
-    .die.target, .die.rerolled { animation:none; }
+    .die.target:not(.rerolled) { animation:none; }
+    .die.rerolled { animation:flashNew .7s ease-out 1; }
   }
   .die.dead { opacity:.3; cursor:default; background:#374151 !important; }
   .p1 .die:not(.dead) { background:var(--p1); } .p2 .die:not(.dead) { background:var(--p2); }
@@ -1798,7 +1805,7 @@ function render() {
         el.appendChild(size);
       }
       if (!d.captured && G && !G.over && !G.roundOver) el.onclick = () => selectDie(p, idx);
-      if (rerolled) setTimeout(() => { if (G) { G.flashDone = G.flashDone||[]; G.flashDone.push(p.name+idx); } }, 500);
+      if (rerolled) setTimeout(() => { if (G) { G.flashDone = G.flashDone||[]; G.flashDone.push(p.name+idx); } }, 800);
       box.appendChild(el);
     });
   }
