@@ -1439,10 +1439,11 @@ function deserializeGame(s) {
     const p = { name: o.name, btnName: o.btnName, rounds: o.rounds, dice: o.dice.map(d => ({ ...d })), captured: o.captured.map(d => ({ ...d })) };
     return p;
   };
+  const p1 = pl(s.p1), p2 = pl(s.p2);
   const g = {
-    p1: pl(s.p1), p2: pl(s.p2), turn: s.turn === 2 ? s.p2 : s.p1,
+    p1, p2, turn: s.turn === 2 ? p2 : p1,
     sel: [], round: s.round, over: s.over, roundOver: s.roundOver,
-    log: s.log, lastRerolled: (s.lastRerolled || []).map(r => ({ p: r.p === 2 ? s.p2 : s.p1, idx: r.idx })),
+    log: s.log, lastRerolled: (s.lastRerolled || []).map(r => ({ p: r.p === 2 ? p2 : p1, idx: r.idx })),
     flashDone: s.flashDone || [], aiLevel: s.aiLevel
   };
   return g;
