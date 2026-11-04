@@ -199,6 +199,7 @@
 
       // Editor State
       const [newTurnText, setNewTurnText] = useState('');
+      const [notifyOn, setNotifyOn] = useState(false); // per-story email subscription
 
       useEffect(() => {
         fetchStories();
@@ -339,7 +340,42 @@
         return { canPost: true, reason: 'Ready to post!' };
       }, [currentUser, activeStory, currentWordCount, currentSymbolCount]);
 
-      // Auth Handlers
+      // Load this user's subscription state for the active story.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!currentUser || !activeStory) { if (!cancelled) setNotifyOn(false); return; }
+      const { data } = await supabase
+        .from('story_subscribers')
+        .select('user_id')
+        .eq('story_id', activeStory.id)
+        .eq('user_id', currentUser.id)
+        .maybeSingle();
+      if (!cancelled) setNotifyOn(!!data);
+    })();
+    return () => { cancelled = true; };
+  }, [currentUser, activeStory?.id]);
+
+  const toggleNotify = async () => {
+    if (!currentUser) { setActiveTab('auth'); return; }
+    if (!activeStory) return;
+    if (notifyOn) {
+      const { error } = await supabase
+        .from('story_subscribers')
+        .delete()
+        .eq('story_id', activeStory.id)
+        .eq('user_id', currentUser.id);
+      if (!error) setNotifyOn(false);
+    } else {
+      const { error } = await supabase
+        .from('story_subscribers')
+        .insert([{ story_id: activeStory.id, user_id: currentUser.id, email: currentUser.email }]);
+      if (!error) setNotifyOn(true);
+      else alert('Could not subscribe: ' + error.message);
+    }
+  };
+
+  // Auth Handlers
       const handleAuthSubmit = async (e) => {
         e.preventDefault();
         setAuthMessage('');
@@ -455,6 +491,16 @@
         if (error) {
           alert('Error posting turn: ' + error.message);
         } else {
+          // Contributors are subscribed by default unless they opted out.
+          if (!notifyOn) {
+            await supabase
+              .from('story_subscribers')
+              .upsert(
+                [{ story_id: activeStory.id, user_id: currentUser.id, email: currentUser.email }],
+                { onConflict: 'story_id,user_id' }
+              );
+            setNotifyOn(true);
+          }
           setNewTurnText('');
           await fetchStories();
         }
@@ -559,6 +605,17 @@
                       </span>
                     </div>
                     <p className="text-xs text-gray-300">{activeStory.description}</p>
+                    <label className="mt-3 flex items-center gap-2 text-xs text-gray-300 cursor-pointer select-none" title={currentUser ? 'Email me when someone adds a turn to this story' : 'Log in to receive email notifications'}>
+                      <input
+                        type="checkbox"
+                        checked={notifyOn}
+                        disabled={!currentUser}
+                        onChange={toggleNotify}
+                        className="w-4 h-4 accent-amber-500"
+                      />
+                      Notify me by email when this story is updated
+                      {!currentUser && <span className="text-[10px] text-gray-500">(log in first)</span>}
+                    </label>
                   </div>
 
                   <div className="space-y-4">
